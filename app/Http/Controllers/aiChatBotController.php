@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Faq;
+use App\Models\Intent;
+use App\Models\Department;
 use App\Services\GeminiService;
 
 class aiChatBotController extends Controller
@@ -32,7 +34,7 @@ class aiChatBotController extends Controller
             $kbAnswer = $bestMatch->answer;
 
             if ($bestMatch->department) {
-                $kbAnswer .= " The {$bestMatch->department->name} is located at {$bestMatch->department->location}. You can contact them at {$bestMatch->department->contact}.";
+                $kbAnswer .= " The {$bestMatch->department->name} is located at {$bestMatch->department->location}. You can contact them at {$bestMatch->department->contact_info}.";
             }
 
             if ($bestMatch->intent) {

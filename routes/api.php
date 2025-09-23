@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\aiChatBotController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
@@ -11,11 +10,12 @@ use App\Models\Department;
 use App\Models\Query;
 use OpenAI\Laravel\Facades\OpenAI;
 use Illuminate\Support\Facades\Log;
-use App\Http\Controllers\aiChatBotControllerr;
+use App\Http\Controllers\aiChatBotController;
 use App\Http\Controllers\questionLogController;
 use App\Http\Controllers\departmentController;
 use App\Http\Controllers\intentController;
 use App\Http\Controllers\faqController;
+use App\Http\Controllers\AuthController;
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
@@ -24,26 +24,36 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 //gemini logic
 Route::post('/chat', [aiChatBotController::class, 'chat']);
 
-Route::get('/allIntents', [intentController::class, 'index']);
-Route::get('/findIntents/{id}', [intentController::class, 'show']);
-Route::post('/createIntents', [intentController::class, 'store']);
-Route::put('/updateIntents/{id}', [intentController::class, 'update']);
-Route::delete('/deleteIntents/{id}', [intentController::class, 'destroy']);
+Route::post('/register', [AuthController::class, 'register']);
+Route::post('/login', [AuthController::class, 'login']);
 
-Route::get('/allFaqs', [faqController::class, 'index']);
-Route::get('/FindFaqs/{id}', [faqController::class, 'show']);
-Route::post('/createFaqs', [faqController::class, 'store']);
-Route::put('/updateFaqs/{id}', [faqController::class, 'update']);
-Route::delete('/deleteFaqs/{id}', [faqController::class, 'destroy']);
+Route::middleware('auth:sanctum')->group(function () {
 
-Route::get('/allDepartments', [departmentController::class, 'index']);
-Route::get('/findDepartments/{id}', [departmentController::class, 'show']);
-Route::post('/createDepaertments', [departmentController::class, 'store']);
-Route::put('/updateDepartments/{id}', [departmentController::class, 'update']);
-Route::delete('/deleteDepartments/{id}', [departmentController::class, 'destroy']);
+    Route::get('user', [aiChatBotController::class, 'userInfo']);
+    Route::post('logout', [aiChatBotController::class, 'logOut']);
 
-Route::get('/allQuestionLogs', [questionLogController::class, 'index']);
-Route::get('/findQuestionLogs/{id}', [questionLogController::class, 'show']);
+    Route::get('/allIntents', [intentController::class, 'index']);
+    Route::get('/findIntents/{id}', [intentController::class, 'show']);
+    Route::post('/createIntents', [intentController::class, 'store']);
+    Route::put('/updateIntents/{id}', [intentController::class, 'update']);
+    Route::delete('/deleteIntents/{id}', [intentController::class, 'destroy']);
+
+    Route::get('/allFaqs', [faqController::class, 'index']);
+    Route::get('/FindFaqs/{id}', [faqController::class, 'show']);
+    Route::post('/createFaqs', [faqController::class, 'store']);
+    Route::put('/updateFaqs/{id}', [faqController::class, 'update']);
+    Route::delete('/deleteFaqs/{id}', [faqController::class, 'destroy']);
+
+    Route::get('/allDepartments', [departmentController::class, 'index']);
+    Route::get('/findDepartments/{id}', [departmentController::class, 'show']);
+    Route::post('/createDepaertments', [departmentController::class, 'store']);
+    Route::put('/updateDepartments/{id}', [departmentController::class, 'update']);
+    Route::delete('/deleteDepartments/{id}', [departmentController::class, 'destroy']);
+
+    Route::get('/allQuestionLogs', [questionLogController::class, 'index']);
+    Route::get('/findQuestionLogs/{id}', [questionLogController::class, 'show']);
+
+});
 
 
 
