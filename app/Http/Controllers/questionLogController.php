@@ -23,6 +23,12 @@ class questionLogController extends Controller
         return response()->json($questionLog);
     }
 
+    public function deleteAll()
+    {
+        QuestionLog::truncate();
+        return response()->json(['message' => 'All question logs deleted successfully']);
+    }
+
     public function exportExcel()
     {
         // Placeholder for Excel export functionality

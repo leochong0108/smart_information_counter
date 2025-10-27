@@ -82,7 +82,7 @@ const resetIdleTimer = () => {
   // Hide the modal if it's visible
   showModal.value = false;
   // Start a new timer for 30 seconds
-  idleTimer = setTimeout(showModalAndCountdown, 30000);
+  idleTimer = setTimeout(showModalAndCountdown, 60000);
 };
 
 const showModalAndCountdown = () => {
@@ -133,7 +133,7 @@ const sendMessage = async () => {
 const setInputAndSend = (question) => {
   resetIdleTimer();
   input.value = question;
-  sendMessage();
+ // sendMessage();
 };
 
 const endChat = () => {

@@ -16,11 +16,16 @@ class QuestionLog extends Model
         return $this->belongsTo(Intent::class);
     }
 
+    public function department()
+    {
+        return $this->belongsTo(Department::class);
+    }
+
     protected $fillable = [
-        'user_question',
-        'matched_faq_id',
+        'question_text',
+        'answer_text',
         'intent_id',
-        'confidence_score',
-        'asked_at',
+        'department_id',
+        'status',
     ];
 }

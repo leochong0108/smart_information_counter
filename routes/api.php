@@ -43,10 +43,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/createFaqs', [faqController::class, 'store']);
     Route::put('/updateFaqs/{id}', [faqController::class, 'update']);
     Route::delete('/deleteFaqs/{id}', [faqController::class, 'destroy']);
+    Route::post('/importExcel', [faqController::class, 'import']);
+    Route::get('/exportExcel', [faqController::class, 'export']);
 
     Route::get('/allDepartments', [departmentController::class, 'index']);
     Route::get('/findDepartments/{id}', [departmentController::class, 'show']);
-    Route::post('/createDepaertments', [departmentController::class, 'store']);
+    Route::post('/createDepartments', [departmentController::class, 'store']);
     Route::put('/updateDepartments/{id}', [departmentController::class, 'update']);
     Route::delete('/deleteDepartments/{id}', [departmentController::class, 'destroy']);
 

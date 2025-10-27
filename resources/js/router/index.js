@@ -6,6 +6,7 @@ import AdminLayout from '../views/private/AdminLayout.vue'; // This will be the 
 import Intents from '../views/private/intents.vue';
 import Faqs from '../views/private/faqs.vue';
 import Departments from '../views/private/departments.vue';
+import QuestionLogs from '../views/private/questionLog.vue';
 import NotFoundComponent from '../components/NotFound.vue'; // A simple 404 component
 import Register from '../views/private/Register.vue'; // If you create a register component
 //import QuestionLogs from '../views/private/questionLogs.vue'; // Add this to match your routes
@@ -29,7 +30,7 @@ const routes = [
       { path: 'intents', name: 'Intents', component: Intents },
       { path: 'faqs', name: 'Faqs', component: Faqs },
       { path: 'departments', name: 'Departments', component: Departments },
-     // { path: 'question-logs', name: 'QuestionLogs', component: QuestionLogs }
+      { path: '', name: 'QuestionLogs', component: QuestionLogs }
     ]
   },
   // Catch-all route for 404 Not Found

@@ -1,5 +1,5 @@
 <template>
-  <div class="home">
+  <div class="container-fluid d-flex flex-column justify-content-center align-items-center vh-100 position-relative">
     <h1>Smart Information Counter</h1>
     <p>Welcome. Click to start chatting.</p>
     <router-link to="/chat"><button class="btn btn-primary">Open Chat</button></router-link>

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services;
+/* namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -53,5 +53,62 @@ class GeminiService
         }
 
         return ['intent' => 'unknown', 'confidence' => 0.5];
+    }
+} */
+
+
+
+
+namespace App\Services;
+
+use Illuminate\Support\Facades\Http;
+
+class GeminiService
+{
+    protected $apiKey;
+
+    public function __construct()
+    {
+        $this->apiKey = env('GEMINI_API_KEY');
+    }
+
+    public function askGemini($prompt, $functions = [])
+    {
+        $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={$this->apiKey}";
+
+        $payload = [
+            "contents" => [[
+                "parts" => [["text" => $prompt]]
+            ]],
+        ];
+
+        // If we defined functions, send them to Gemini
+        if (!empty($functions)) {
+            $payload["tools"] = [
+                [
+                    "function_declarations" => $functions
+                ]
+            ];
+        }
+
+        $response = Http::post($url, $payload);
+
+        if ($response->successful()) {
+            $data = $response->json();
+
+            // Step 1: If Gemini suggests a function call
+            if (isset($data['candidates'][0]['content']['parts'][0]['functionCall'])) {
+                return [
+                    'function_call' => $data['candidates'][0]['content']['parts'][0]['functionCall']
+                ];
+            }
+
+            // Step 2: Normal text reply
+            if (isset($data['candidates'][0]['content']['parts'][0]['text'])) {
+                return $data['candidates'][0]['content']['parts'][0]['text'];
+            }
+        }
+
+        return "Sorry, something went wrong with Gemini.";
     }
 }
