@@ -54,7 +54,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/allQuestionLogs', [questionLogController::class, 'index']);
     Route::get('/findQuestionLogs/{id}', [questionLogController::class, 'show']);
-
+    Route::get('/selectFailedLogs', [questionLogController::class, 'selectFail']);
+    Route::post('/mark-failed-logs', [QuestionLogController::class, 'markSelectedAsChecked']);
 });
 
 

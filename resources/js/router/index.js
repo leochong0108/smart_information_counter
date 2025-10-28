@@ -9,7 +9,7 @@ import Departments from '../views/private/departments.vue';
 import QuestionLogs from '../views/private/questionLog.vue';
 import NotFoundComponent from '../components/NotFound.vue'; // A simple 404 component
 import Register from '../views/private/Register.vue'; // If you create a register component
-//import QuestionLogs from '../views/private/questionLogs.vue'; // Add this to match your routes
+import FailLog from '../views/private/failLog.vue';
 
 const routes = [
   // Public routes that don't require authentication
@@ -30,7 +30,8 @@ const routes = [
       { path: 'intents', name: 'Intents', component: Intents },
       { path: 'faqs', name: 'Faqs', component: Faqs },
       { path: 'departments', name: 'Departments', component: Departments },
-      { path: '', name: 'QuestionLogs', component: QuestionLogs }
+      { path: '', name: 'QuestionLogs', component: QuestionLogs },
+      { path: 'failLog', name: 'FailLog', component: FailLog    }
     ]
   },
   // Catch-all route for 404 Not Found

@@ -41,11 +41,11 @@
                 </li>
 
 
-                <li class="nav-item">
+<!--                 <li class="nav-item">
                 <RouterLink to="/admin/intents" class="nav-link active" aria-current="page">
                     Intents
                 </RouterLink>
-                </li>
+                </li> -->
 
 
                 <li class="nav-item">
@@ -59,6 +59,9 @@
 
             </ul>
             <form class="d-flex" >
+                <button class="btn btn-outline-success me-2" type="button" @click="viewFailLog">
+                    Failed Logs <span class="badge bg-danger">{{ fails.length }}</span>
+                </button>
                  <button v-if="isLoggedIn" @click="handleLogout" class="btn btn-danger" style= "margin-right: 10px;">Logout</button>
                  <RouterLink v-else to="/login" class="hover:bg-gray-700 p-2 rounded">Login</RouterLink>
                  <RouterLink to="/" class=""><button  class='btn btn-primary'>To Chat</button></RouterLink>
@@ -74,20 +77,64 @@
 </template>
 
 <script>
+import { ref , onMounted} from 'vue';
+import { useRouter } from 'vue-router';
+import axios from 'axios';
+
 export default {
-  computed: {
-    isLoggedIn() {
-      // Return a boolean based on whether the token exists
-      return !!localStorage.getItem('sanctum_token');
+
+    setup() {
+        const router = useRouter();
+        const fails = ref([]);
+        const error = ref(null);
+        const token = localStorage.getItem('sanctum_token');
+
+        const getFail = async() => {
+            try {
+                const response = await axios.get('/api/selectFailedLogs', {
+                    headers: { Authorization: `Bearer ${token}`  }
+                });
+                fails.value = response.data;
+                console.log(fails.value);
+            }
+            catch (err) {
+                error.value = err.response?.data?.message || 'Error fetching fails';
+            }
+        };
+
+        const viewFailLog = async() => {
+
+                router.push(`/admin/failLog/`);
+
+        };
+
+
+        const isLoggedIn = async() => {
+            // Return a boolean based on whether the token exists
+            return !!localStorage.getItem('sanctum_token');
+        };
+
+
+        const handleLogout = async() => {
+            // 1. Remove the token from local storage
+            localStorage.removeItem('sanctum_token');
+            // 2. Redirect the user back to the login page
+            router.push('/login');
+        };
+
+        onMounted(() => {
+            getFail();
+        });
+
+        return {
+            fails,
+            error,
+            getFail,
+            viewFailLog,
+            isLoggedIn,
+            handleLogout
+        };
+
     }
-  },
-  methods: {
-    handleLogout() {
-      // 1. Remove the token from local storage
-      localStorage.removeItem('sanctum_token');
-      // 2. Redirect the user back to the login page
-      this.$router.push('/login');
-    }
-  }
 }
 </script>

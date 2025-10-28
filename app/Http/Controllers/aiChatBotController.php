@@ -82,6 +82,7 @@ class aiChatBotController extends Controller
                     'question_text' => $question,
                     'answer_text' => $answer,
                     'status' => true,
+                    'checked' => true,
                 ]);
 
                 return $answer;
@@ -90,6 +91,7 @@ class aiChatBotController extends Controller
             QuestionLog::create([
                 'question_text' => $question,
                 'status' => false,
+                'checked' => false,
             ]);
 
             return "I couldn't find a matching FAQ for that question.";

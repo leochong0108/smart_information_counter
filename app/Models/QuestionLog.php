@@ -27,5 +27,6 @@ class QuestionLog extends Model
         'intent_id',
         'department_id',
         'status',
+        'checked',
     ];
 }

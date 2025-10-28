@@ -77,7 +77,7 @@ export default {
 
         const createDepartments = async () => {
             const { value: formValues } = await Swal.fire({
-                title: 'Create New Rack',
+                title: 'Create',
                 html:
                             `<div class="swal2-input-group">
                                 <label for="name">Name</label>
@@ -125,25 +125,25 @@ export default {
             }
         };
 
-        const editDepartments = async (FAQs) => {
+        const editDepartments = async (departments) => {
             const { value: formValues } = await Swal.fire({
-                title: 'Edit Rack',
+                title: 'Edit',
                 html:
                             `<div class="swal2-input-group">
-                                <label for="question">Question</label>
-                                <input id="question" class="swal2-input" placeholder="Question" value="${FAQs.question}">
+                                <label for="name">Name</label>
+                                <input id="name" class="swal2-input" placeholder="Question" value="${departments.name}">
                             </div>
                             <div class="swal2-input-group">
-                                <label for="answer">Answer</label>
-                                <input id="answer" class="swal2-input" placeholder="Answer" value="${FAQs.answer}">
+                                <label for="description">Description</label>
+                                <input id="description" class="swal2-input" placeholder="Description" value="${departments.description}">
                             </div>
                             <div class="swal2-input-group">
-                                <label for="intent">Intent</label>
-                                <input id="intent" class="swal2-input" placeholder="Intent" value="${FAQs.intent_id}">
+                                <label for="location">Location</label>
+                                <input id="location" class="swal2-input" placeholder="Location" value="${departments.location}">
                             </div>
                             <div class="swal2-input-group">
-                                <label for="department">Department</label>
-                                <input id="department" class="swal2-input" placeholder="Department" value="${FAQs.department_id}">
+                                <label for="contact_info">Contact Info</label>
+                                <input id="contact_info" class="swal2-input" placeholder="Contact Info" value="${departments.contact_info}">
                             </div>`,
                 focusConfirm: false,
                 showCancelButton: true,
@@ -153,10 +153,10 @@ export default {
 
                 preConfirm: () => {
                     return {
-                        question: document.getElementById('question').value,
-                        answer: document.getElementById('answer').value,
-                        intent_id: document.getElementById('intent').value,
-                        department_id: document.getElementById('department').value,
+                        name: document.getElementById('name').value,
+                        description: document.getElementById('description').value,
+                        location: document.getElementById('location').value,
+                        contact_info: document.getElementById('contact_info').value,
                     };
                 }
             });
