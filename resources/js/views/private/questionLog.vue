@@ -4,7 +4,7 @@
         <h1>Question Log</h1>
 
         <div class="d-flex gap-2">
-            <button @click="exportLogs" class="btn btn-primary">
+            <button @click="exportLogs" class="btn btn-success">
                 <i class="fas fa-plus-circle"></i> Export excel
             </button>
         </div>
