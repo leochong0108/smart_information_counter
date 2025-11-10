@@ -17,7 +17,7 @@
     </div>
 
     <div v-if="!logs.length">
-        <p>No Data available. Please add some.</p>
+        <p>No Data available.</p>
     </div>
 
     <div v-if="logs.length" >

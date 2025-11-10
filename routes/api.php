@@ -16,6 +16,7 @@ use App\Http\Controllers\departmentController;
 use App\Http\Controllers\intentController;
 use App\Http\Controllers\faqController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\statisticController;
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
@@ -56,6 +57,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/findQuestionLogs/{id}', [questionLogController::class, 'show']);
     Route::get('/selectFailedLogs', [questionLogController::class, 'selectFail']);
     Route::post('/mark-failed-logs', [QuestionLogController::class, 'markSelectedAsChecked']);
+
+    Route::get('/top10Faqs', [statisticController::class, 'selectMost10']);
+    Route::get('/totalIntents', [statisticController::class, 'totalIntents']);
 });
 
 

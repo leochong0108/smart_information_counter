@@ -23,4 +23,10 @@ class Department extends Model
     {
         return $this->hasMany(Intent::class);
     }
+
+    public function questionLogs()
+    {
+        return $this->hasMany(QuestionLog::class);
+    }
+
 }

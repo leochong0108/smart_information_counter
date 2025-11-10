@@ -28,5 +28,6 @@ class QuestionLog extends Model
         'department_id',
         'status',
         'checked',
+        'faq_id',
     ];
 }

@@ -81,6 +81,9 @@ class aiChatBotController extends Controller
                 QuestionLog::create([
                     'question_text' => $question,
                     'answer_text' => $answer,
+                    'faq_id' => $bestMatch->id,
+                    'intent_id' => $bestMatch->intent_id,
+                    'department_id' => $bestMatch->department_id,
                     'status' => true,
                     'checked' => true,
                 ]);
