@@ -1,6 +1,6 @@
 
 <template>
-    <div class="d-flex align-items-center justify-content-between mb-5">
+    <div class="d-flex align-items-center justify-content-between mb-2">
         <h1>Question Log</h1>
 
         <div class="d-flex gap-2">

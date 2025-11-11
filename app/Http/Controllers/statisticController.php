@@ -15,6 +15,12 @@ use Illuminate\Support\Facades\Log;
 class statisticController extends Controller
 {
 
+    public function totalQuestions()
+    {
+        $totalQuestions = QuestionLog::count();
+
+        return response()->json($totalQuestions);
+    }
 
     public function selectMost10(Request $request)
     {

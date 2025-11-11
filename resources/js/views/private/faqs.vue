@@ -1,83 +1,27 @@
-<!-- <template>
-  <div>
-    <h1 class="text-2xl font-bold mb-4">FAQ Management</h1>
-    <button @click="fetchFaqs" class="btn btn-primary" style="margin-bottom: 10px;">+ Add New FAQs</button>
-
-    <table class="w-full border">
-      <thead>
-        <tr class="bg-gray-200">
-          <th class="p-2 border">Question</th>
-          <th class="p-2 border">Answer</th>
-          <th class="p-2 border">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="faq in faqs" :key="faq.id">
-          <td class="border p-2">{{ faq.question }}</td>
-          <td class="border p-2">{{ faq.answer }}</td>
-          <td class="border p-2">
-            <button class="btn btn-primary">Edit</button>
-            <button @click="deleteFaq(faq.id)" class="btn btn-danger" style="margin-left: 5px;">Delete</button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</template>
-
-<script setup>
-import { ref, onMounted } from 'vue'
-import axios from 'axios'
-
-const faqs = ref([])
-
-const fetchFaqs = async () => {
-
-  const token = localStorage.getItem('sanctum_token');
-
-    if (token) {
-          const res = await axios.get('/api/allFaqs', {
-            headers: { Authorization: `Bearer ${token}` }
-        })
-        faqs.value = res.data
-    }
-
-}
-
-const deleteFaq = async (id) => {
-
-const token = localStorage.getItem('sanctum_token');
-
-if (token) {
-    await axios.delete(`/api/faqs/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-    })
-}
-
-  fetchFaqs()
-}
-
-onMounted(fetchFaqs)
-</script> -->
-
 <template>
-<div class="d-flex align-items-center justify-content-between mb-5">
-    <h1>FAQs Management</h1>
-    <div>
-        <button @click="exportFAQs" class="btn btn-success me-2">
-            <i class="fas fa-file-export"></i> Export Excel
-        </button>
-        <input type="file" ref="importFile" style="display:none" @change="importFAQs" />
-        <button @click="triggerImport" class="btn btn-secondary me-2">
-            <i class="fas fa-file-import"></i> Import Excel
-        </button>
-        <button @click="createFAQs" class="btn btn-primary">
-            <i class="fas fa-plus-circle"></i> + Add New
-        </button>
+<div class="container-fluid">
+    <div class="row">
+    <div class="col-12 d-flex align-items-center justify-content-between mb-2">
+        <h1>FAQs Management</h1>
+        <div>
+            <button @click="exportFAQs" class="btn btn-success me-2">
+                <i class="fas fa-file-export"></i> Export Excel
+            </button>
+            <input type="file" ref="importFile" style="display:none" @change="importFAQs" />
+            <button @click="triggerImport" class="btn btn-secondary me-2">
+                <i class="fas fa-file-import"></i> Import Excel
+            </button>
+            <button @click="createFAQs" class="btn btn-primary">
+                <i class="fas fa-plus-circle"></i> + Add New
+            </button>
+        </div>
     </div>
 </div>
 
 
+<div class="row">
+
+    <div class="col-12 ">
     <div v-if="loading" class="text-center" style="padding: 13rem;">
         <div class="spinner-border text-primary" role="status">
             <span class="visually-hidden">Loading...</span>
@@ -108,7 +52,7 @@ onMounted(fetchFaqs)
                     <td v-if="FAQ.intent_id == null">
                     -
                     </td>
-                    <td v-else>{{ FAQ.intent.name }}</td>
+                    <td v-else>{{ FAQ.intent.intent_name }}</td>
                     <td v-if="FAQ.department_id == null">
                     -
                     </td>
@@ -123,6 +67,11 @@ onMounted(fetchFaqs)
             </tbody>
         </table>
     </div>
+    </div>
+</div>
+</div>
+
+
 </template>
 
 <script>
@@ -131,51 +80,33 @@ import axios from 'axios';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
+import { useDataFetcher } from '../../services/dataFetcher';
 
 export default {
     setup() {
-        const FAQs = ref([]);
-        const departments = ref([]);
         const error = ref(null);
         const token = localStorage.getItem('sanctum_token');
         const importFile = ref(null);
 
-        const getFAQs = async () => {
+        //import the data and functions from other files
+        const {
+            intents,
+            FAQs,
+            departments,
+            getFAQs,
+            getIntents,
+            getDepartments
 
-        if(token){
-                try {
-                    const response = await axios.get('/api/allFaqs', {
-                        headers: { Authorization: `Bearer ${token}` }
-                    });
-                    FAQs.value = response.data;
-                    console.log(FAQs.value);
-                } catch (err) {
-                    error.value = err.response?.data?.message || 'Error fetching FAQs';
-                }
-            };
-        };
-
-        const getDepartments = async () => {
-
-        if(token){
-                try {
-                    const response = await axios.get('/api/allDepartments', {
-                        headers: { Authorization: `Bearer ${token}` }
-                    });
-                    departments.value = response.data;
-                    console.log(departments.value);
-                } catch (err) {
-                    error.value = err.response?.data?.message || 'Error fetching departments';
-                }
-            };
-        };
-
+        }
+        = useDataFetcher();
 
         const createFAQs = async () => {
 
             await getDepartments();
+            await getIntents();
 
             const deptOptions = departments.value.map(dept => `<option value="${dept.id}">${dept.name}</option>`).join('');
+            const intentOptions = intents.value.map(intent => `<option value="${intent.id}">${intent.intent_name}</option>`).join('');
 
             const { value: formValues } = await Swal.fire({
                 title: 'Create',
@@ -190,7 +121,10 @@ export default {
                             </div>
                             <div class="swal2-input-group">
                                 <label for="intent">Intent</label>
-                                <input id="intent" class="swal2-input" placeholder="Intent">
+                                <select id="intent" class="swal2-input" style="margin-left: 40px;">
+                                    <option value="" disabled selected>Select Intent</option>
+                                    ${intentOptions}
+                                </select>
                             </div>
                             <div class="swal2-input-group">
                                 <label for="department" ">Department</label>
@@ -231,6 +165,7 @@ export default {
 
         const editFAQs = async (FAQs) => {
             await getDepartments();
+            await getIntents();
             const { value: formValues } = await Swal.fire({
                 title: 'Edit',
                 html:
@@ -244,7 +179,13 @@ export default {
                             </div>
                             <div class="swal2-input-group">
                                 <label for="intent">Intent</label>
-                                <input id="intent" class="swal2-input" placeholder="Intent" value="${FAQs.intent_id}">
+                                <select id="intent" class="swal2-input" style="margin-left: 40px;">
+                                    <option value="" disabled>Select Intent</option>
+                                    <option value="">None</option>
+                                    ${intents.value.map(intent => `
+                                        <option value="${intent.id}" ${intent.id === FAQs.intent_id ? 'selected' : ''}>${intent.intent_name}</option>
+                                    `).join('')}
+                                </select>
                             </div>
                             <div class="swal2-input-group">
                                 <label for="department">Department</label>
@@ -383,6 +324,7 @@ export default {
         return {
             FAQs,
             departments,
+            intents,
             error,
             getFAQs,
             getDepartments,

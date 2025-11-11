@@ -41,16 +41,22 @@
                 </li>
 
 
-<!--                 <li class="nav-item">
+                <li class="nav-item">
                 <RouterLink to="/admin/intents" class="nav-link active" aria-current="page">
                     Intents
                 </RouterLink>
-                </li> -->
+                </li>
 
 
                 <li class="nav-item">
                 <RouterLink to="/admin/faqs" class="nav-link active" aria-current="page">
                     FAQs
+                </RouterLink>
+                </li>
+
+                <li class="nav-item">
+                <RouterLink to="/admin/logs" class="nav-link active" aria-current="page">
+                    Questions Log
                 </RouterLink>
                 </li>
 

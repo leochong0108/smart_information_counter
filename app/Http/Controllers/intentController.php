@@ -10,7 +10,7 @@ class intentController extends Controller
 {
     public function index()
     {
-        $intents = Intent::with('faqs')->get();
+        $intents = Intent::with('faqs','department')->get();
         return response()->json($intents);
     }
 

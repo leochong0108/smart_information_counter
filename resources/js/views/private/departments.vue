@@ -1,5 +1,5 @@
 <template>
-    <div class="d-flex align-items-center justify-content-between mb-5">
+    <div class="d-flex align-items-center justify-content-between mb-2">
         <h1>Departments Management</h1>
 
         <button @click="createDepartments" class="btn btn-primary">
