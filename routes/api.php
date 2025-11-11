@@ -60,6 +60,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/top10Faqs', [statisticController::class, 'selectMost10']);
     Route::get('/totalIntents', [statisticController::class, 'totalIntents']);
+    Route::get('/totalQuestions', [statisticController::class, 'totalQuestions']);
 });
 
 
