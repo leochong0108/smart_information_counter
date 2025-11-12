@@ -14,7 +14,7 @@
                         <button @click="setInputAndSend('I want to apply scholarship.')" class="btn btn-predefined">I want to apply scholarship.</button>
                     </div>
                     <div class="col-auto">
-                        <button @click="setInputAndSend('where to register?')" class="btn btn-predefined">where to register?</button>
+                        <button @click="setInputAndSend('where to register?')" class="btn btn-predefined">where to apply for admission?</button>
                     </div>
                     <div class="col-auto">
                         <button @click="setInputAndSend('I want to apply for an event.')" class="btn btn-predefined">I want to apply for an event.</button>

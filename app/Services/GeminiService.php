@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Log; // Added for better debugging
 class GeminiService
 {
     protected $apiKey;
-    protected $endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+    protected $endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
     public function __construct()
     {
