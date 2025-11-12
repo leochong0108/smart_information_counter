@@ -1,80 +1,31 @@
 <?php
 
-/* namespace App\Services;
-
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
-
-class GeminiService
-{
-    private $apiKey;
-    private $endpoint;
-
-    public function __construct()
-    {
-        $this->apiKey = env('GEMINI_API_KEY');
-        $this->endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
-    }
-
-    // Call Gemini to generate text
-    public function askGemini(string $prompt): ?string
-    {
-        $response = Http::withHeaders([
-            'Content-Type' => 'application/json',
-        ])->post($this->endpoint . '?key=' . $this->apiKey, [
-            'contents' => [
-                ['parts' => [['text' => $prompt]]]
-            ]
-        ]);
-
-        if ($response->successful()) {
-            $data = $response->json();
-            // Log raw response for debugging
-            Log::info('Gemini response', $data);
-
-            return $data['candidates'][0]['content']['parts'][0]['text'] ?? null;
-        }
-
-        Log::error('Gemini API failed: ' . $response->body());
-        return null;
-    }
-
-    // Dummy intent classifier (replace with DB or fine-tuning later)
-    public function classifyIntent(string $message): array
-    {
-        $message = strtolower($message);
-
-        if (str_contains($message, 'scholarship')) {
-            return ['intent' => 'scholarship', 'confidence' => 0.9];
-        }
-
-        if (str_contains($message, 'department') || str_contains($message, 'where is')) {
-            return ['intent' => 'department_location', 'confidence' => 0.8];
-        }
-
-        return ['intent' => 'unknown', 'confidence' => 0.5];
-    }
-} */
-
-
-
-
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log; // Added for better debugging
 
 class GeminiService
 {
     protected $apiKey;
+    protected $endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
     public function __construct()
     {
+        // Use the model endpoint directly in the class
         $this->apiKey = env('GEMINI_API_KEY');
     }
 
-    public function askGemini($prompt, $functions = [])
+    /**
+     * Handles tool calling and initial text responses.
+     * Includes the 'tools' payload when functions are provided.
+     * * @param string $prompt The user's message or a system prompt.
+     * @param array $functions An array of function declarations (for tool use).
+     * @return array|string|null Returns a function_call array, a text string, or null on failure.
+     */
+    public function askGemini(string $prompt, array $functions = [])
     {
-        $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={$this->apiKey}";
+        $url = "{$this->endpoint}?key={$this->apiKey}";
 
         $payload = [
             "contents" => [[
@@ -82,7 +33,7 @@ class GeminiService
             ]],
         ];
 
-        // If we defined functions, send them to Gemini
+        // If functions are provided, add the tools payload
         if (!empty($functions)) {
             $payload["tools"] = [
                 [
@@ -96,19 +47,64 @@ class GeminiService
         if ($response->successful()) {
             $data = $response->json();
 
+            // Check if a candidate exists
+            if (!isset($data['candidates'][0]['content']['parts'][0])) {
+                return "Model returned an empty response or was blocked by safety settings.";
+            }
+
+            $part = $data['candidates'][0]['content']['parts'][0];
+
             // Step 1: If Gemini suggests a function call
-            if (isset($data['candidates'][0]['content']['parts'][0]['functionCall'])) {
+            if (isset($part['functionCall'])) {
                 return [
-                    'function_call' => $data['candidates'][0]['content']['parts'][0]['functionCall']
+                    // Changed key from 'functionCall' to match the chat function's logic
+                    'function_call' => $part['functionCall']
                 ];
             }
 
             // Step 2: Normal text reply
-            if (isset($data['candidates'][0]['content']['parts'][0]['text'])) {
-                return $data['candidates'][0]['content']['parts'][0]['text'];
+            if (isset($part['text'])) {
+                return $part['text'];
             }
+
+            // Should not happen for this model, but catches unexpected response types
+            return "Model returned an unexpected part type.";
         }
 
-        return "Sorry, something went wrong with Gemini.";
+        Log::error('Gemini API (askGemini) failed: ' . $response->body());
+        return "Sorry, something went wrong with the Gemini API. (askGemini error)";
+    }
+
+    // --- NEW METHOD FOR NATURAL LANGUAGE REPHRASING ---
+
+    /**
+     * Generates a simple text response without allowing function calls.
+     * Used for rephrasing factual data into natural language.
+     * * @param string $prompt The prompt containing the raw data to be rephrased.
+     * @return string The generated text reply, or an error message.
+     */
+    public function generateText(string $prompt): string
+    {
+        $url = "{$this->endpoint}?key={$this->apiKey}";
+
+        $payload = [
+            "contents" => [[
+                "parts" => [["text" => $prompt]]
+            ]],
+            // Crucially, NO 'tools' or 'function_declarations' are included here.
+        ];
+
+        $response = Http::post($url, $payload);
+
+        if ($response->successful()) {
+            $data = $response->json();
+
+            // Simple text extraction
+            return $data['candidates'][0]['content']['parts'][0]['text']
+                ?? "Could not generate natural language reply.";
+        }
+
+        Log::error('Gemini API (generateText) failed: ' . $response->body());
+        return "Sorry, a secondary API call for rephrasing failed.";
     }
 }

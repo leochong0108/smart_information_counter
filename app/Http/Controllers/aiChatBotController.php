@@ -119,11 +119,14 @@ class aiChatBotController extends Controller
             return "Intent: {$intent->name} — {$intent->description}.";
         }
 
+// ... (Helper functions getFaqAnswer, getDepartmentInfo, getIntentInfo remain unchanged)
+
     public function chat(Request $request)
     {
         $userMessage = $request->input('message');
-        $gemini = new \App\Services\GeminiService();
+        $gemini = new \App\Services\GeminiService(); // Assuming this is your service class
 
+        // Functions array remains unchanged
         $functions = [
             [
                 "name" => "getFaqAnswer",
@@ -155,15 +158,6 @@ class aiChatBotController extends Controller
             ],
         ];
 
-/*         $prompt = "
-        You are a chatbot for Southern University College.
-        When the user asks about tuition fees, locations, or other university services,
-        use getFaqAnswer to fetch the most relevant information from the database.
-        If unsure, you can still try to call getFaqAnswer.
-        Otherwise, reply naturally.
-        User said: '$userMessage'
-        "; */
-
         $prompt = "
         You are a chatbot for Southern University College.
         Please reply in natural language and politely, using the knowledge base answer directly (don't invent new info).
@@ -178,48 +172,78 @@ class aiChatBotController extends Controller
         $response = $gemini->askGemini($prompt, $functions);
 
         // 🧩 Step 1: Detect if Gemini returned a function call
-/*         if (is_array($response) && isset($response['function_call'])) {
-            $functionCall = $response['function_call'];
-            $functionName = $functionCall['name'] ?? null;
-
-            // Gemini sometimes returns 'args' or 'arguments'
-            $args = $functionCall['args'] ?? $functionCall['arguments'] ?? [];
-
-            if ($functionName === 'getFaqAnswer') {
-                $question = $args['question'] ?? $userMessage;
-
-                // ✅ Use your fuzzy match logic here
-                $answer = $this->getFaqAnswer($question);
-                return response()->json(['reply' => $answer]);
-            }
-        } */
-
         if (is_array($response) && isset($response['function_call'])) {
             $functionCall = $response['function_call'];
             $functionName = $functionCall['name'] ?? null;
             $args = $functionCall['args'] ?? $functionCall['arguments'] ?? [];
 
+        $factualAnswer = null; // Initialize a variable to hold the raw data
+        $departmentFailureMessage = null;
+
             switch ($functionName) {
                 case 'getFaqAnswer':
                     $question = $args['question'] ?? $userMessage;
-                    $answer = $this->getFaqAnswer($question);
-                    return response()->json(['reply' => $answer]);
+                    $factualAnswer = $this->getFaqAnswer($question);
+                    break;
 
                 case 'getDepartmentInfo':
                     $name = $args['name'] ?? $userMessage;
-                    $answer = $this->getDepartmentInfo($name);
-                    return response()->json(['reply' => $answer]);
+                    $factualAnswer = $this->getDepartmentInfo($name);
+                    // prepare the specific failure message so later checks don't reference undefined $name
+                    $departmentFailureMessage = "I couldn't find department information for '{$name}'.";
+                    break;
+            }
+
+            // 🧠 Step 2 (NEW): If we successfully retrieved factual data, send it back to Gemini for rephrasing
+            $failureMessage = "I couldn't find a matching FAQ for that question.";
+
+            // **CHECK:** Did a function execute and return valid, non-failure data?
+        if ($factualAnswer && $factualAnswer !== $failureMessage && $factualAnswer !== $departmentFailureMessage) {
+
+                // --- THIS IS WHERE THE NATURAL LANGUAGE INTEGRATION HAPPENS (THE KEY CHANGE) ---
+                $integrationPrompt = "The user asked: '{$userMessage}'.
+                The knowledge base provided the following information: '{$factualAnswer}'.
+                You are a polite chatbot for Southern University College.
+                Please rephrase and integrate this information into a single, natural, and conversational response.
+                Do not add or invent any new information beyond the facts provided.
+                Your final answer should be ONLY the natural language response.";
+
+                // Assuming a method for simple text generation without tools:
+                // **NOTE:** You must implement a simple $gemini->generateText($prompt) method
+                // that doesn't use tools, just returns the text response.
+                $naturalReply = $gemini->generateText($integrationPrompt);
+
+                return response()->json(['reply' => $naturalReply]);
+                // --------------------------------------------------------------------------
+            }
+
+            // If the function was called but failed (e.g., department not found),
+            // return the failure message directly.
+            if ($factualAnswer) {
+                return response()->json(['reply' => $factualAnswer]);
             }
         }
 
-        // 🧠 Step 2: If no function call, still try fuzzy match
+        // 🧠 Step 3: If no function call, still try fuzzy match (Fallback Logic)
         $fallbackAnswer = $this->getFaqAnswer($userMessage);
 
         if ($fallbackAnswer !== "I couldn't find a matching FAQ for that question.") {
-            return response()->json(['reply' => $fallbackAnswer]);
+            // If the fallback works, we still use Gemini to make it sound natural!
+
+            // --- NEW REPHRASING FOR FALLBACK ---
+            $integrationPrompt = "The user asked: '{$userMessage}'.
+            The knowledge base provided the following information: '{$fallbackAnswer}'.
+            You are a polite chatbot for Southern University College.
+            Please rephrase and integrate this information into a single, natural, and conversational response.
+            Do not add or invent any new information beyond the facts provided.
+            Your final answer should be ONLY the natural language response.";
+
+            $naturalReply = $gemini->generateText($integrationPrompt);
+
+            return response()->json(['reply' => $naturalReply]);
         }
 
-        // 🗣️ Step 3: Otherwise, return Gemini's direct reply
+        // 🗣️ Step 4: Otherwise, return Gemini's direct reply or final error
         return response()->json(['reply' => is_string($response) ? $response : "Sorry, I don't have that information yet."]);
     }
 
