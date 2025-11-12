@@ -109,8 +109,12 @@ class statisticController extends Controller
         return response()->json($intents);
     }
 
-    public function selectPeriod()
+    public function totalFail()
     {
+        $totalFails = QuestionLog::where('status',false)->count();
 
+        return response()->json($totalFails);
     }
+
+
 }

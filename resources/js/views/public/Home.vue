@@ -3,6 +3,7 @@
     <h1>Smart Information Counter</h1>
     <p>Welcome. Click to start chatting.</p>
     <router-link to="/chat"><button class="btn btn-primary">Open Chat</button></router-link>
+    <router-link to="/admin"><button class="btn btn-primary">admin</button></router-link>
   </div>
 </template>
 

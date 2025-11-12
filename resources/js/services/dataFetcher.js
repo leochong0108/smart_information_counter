@@ -6,6 +6,7 @@ export function useDataFetcher() {
   const FAQs = ref([]);
   const departments = ref([]);
   const totalQuestions = ref([]);
+  const totalFail = ref([]);
   const isLoading = ref(false);
   const error = ref(null);
   const token = localStorage.getItem('sanctum_token');
@@ -71,6 +72,21 @@ export function useDataFetcher() {
             };
         }
 
+        const getTotalFail = async () => {
+
+            if(token){
+                try{
+                    const response = await axios.get('/api/totalFail',{
+                        headers: {Authorization: `Bearer ${token}` }
+                    });
+                    totalFail.value = response.data;
+                }
+                catch(err){
+                    error.value = err.response?.data?.message || 'Error fetching total fail record'
+                }
+            }
+        }
+
 
 
   return {
@@ -78,12 +94,14 @@ export function useDataFetcher() {
     FAQs,
     departments,
     totalQuestions,
+    totalFail,
     isLoading,
     error,
     getIntents,
     getFAQs,
     getDepartments,
-    getTotalQuestions
+    getTotalQuestions,
+    getTotalFail
 
   };
 }

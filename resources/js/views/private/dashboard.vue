@@ -38,7 +38,7 @@
                 <div class="card-body">
                     <div class="metric-title">Total Failed</div>
                     <div class="metric-value display-4 font-weight-bold">
-                        4
+                        {{ totalFail }}
                     </div>
                 </div>
             </div>
@@ -125,9 +125,13 @@
                 <div class="d-flex align-items-center justify-content-between mb-1">
                     <h3>Top 10 FAQs</h3>
                     <div>
-                        <button @click="createFAQs" class="btn btn-primary">
-                            <i class="fas fa-plus-circle"></i> + Add New
-                        </button>
+                        <select v-model="selectedFilter" class="form-select me-2" style="width: auto;">
+                            <option value="all-time">All Time</option>
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="monthly">Monthly</option>
+                            <option value="yearly">Yearly</option>
+                        </select>
                     </div>
                 </div>
 
@@ -186,7 +190,9 @@ export default {
 
         const {
             totalQuestions,
-            getTotalQuestions
+            totalFail,
+            getTotalQuestions,
+            getTotalFail
 
         }
         = useDataFetcher();
@@ -333,6 +339,7 @@ export default {
             await getIntents(); */
             await getTotalIntents();
             await getTotalQuestions();
+            await getTotalFail();
         });
 
         return {
@@ -345,9 +352,11 @@ export default {
             barChartOptions,
             pieChartOptions,
             chartData,
+            totalFail,
             getTop10FAQs,
             getTotalQuestions,
-            getTotalIntents
+            getTotalIntents,
+            getTotalFail
         };
     }
 }
