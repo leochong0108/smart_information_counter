@@ -1,25 +1,3 @@
-<!-- <template>
-  <div class="flex h-screen">
-    <aside class="w-64 bg-gray-800 text-white p-4">
-      <h2 class="text-xl font-bold mb-6">Admin Panel</h2>
-      <nav class="flex flex-col space-y-4">
-        <RouterLink to="/admin/faqs" class="hover:bg-gray-700 p-2 rounded">Manage FAQs</RouterLink>
-        <RouterLink to="/admin/intents" class="hover:bg-gray-700 p-2 rounded">Manage Intents</RouterLink>
-        <RouterLink to="/admin/departments" class="hover:bg-gray-700 p-2 rounded">Manage Departments</RouterLink>
-        <button v-if="isLoggedIn" @click="handleLogout" class="hover:bg-red-700 p-2 rounded text-left">Logout</button>
-        <RouterLink v-else to="/login" class="hover:bg-gray-700 p-2 rounded">Login</RouterLink>
-        <RouterLink to="/" class="hover:bg-gray-700 p-2 rounded"><button  class='btn btn-primary'>To Chat</button></RouterLink>
-
-
-      </nav>
-    </aside>
-
-    <main class="flex-1 p-6 overflow-y-auto">
-      <RouterView />
-    </main>
-  </div>
-</template> -->
-
 <template>
     <nav class="navbar navbar-expand-lg bg-body-tertiary">
         <div class="container-fluid">
@@ -66,7 +44,7 @@
             </ul>
             <form class="d-flex" >
                 <button class="btn btn-outline-success me-2" type="button" @click="viewFailLog">
-                    Failed Logs <span class="badge bg-danger">{{ fails.length }}</span>
+                    Failed Logs <span class="badge bg-danger">{{ failsCount }}</span>
                 </button>
                  <button v-if="isLoggedIn" @click="handleLogout" class="btn btn-danger" style= "margin-right: 10px;">Logout</button>
                  <RouterLink v-else to="/login" class="hover:bg-gray-700 p-2 rounded">Login</RouterLink>
@@ -86,16 +64,19 @@
 import { ref , onMounted} from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
+import { useFailedLogStore } from '../../services/useFailsLog';
 
 export default {
 
     setup() {
+        const { failsCount, refreshFailedLogs } = useFailedLogStore();
         const router = useRouter();
-        const fails = ref([]);
-        const error = ref(null);
+        //const fails = ref([]);
+        //const error = ref(null);
         const token = localStorage.getItem('sanctum_token');
 
-        const getFail = async() => {
+
+/*         const getFail = async() => {
             try {
                 const response = await axios.get('/api/selectFailedLogs', {
                     headers: { Authorization: `Bearer ${token}`  }
@@ -106,7 +87,7 @@ export default {
             catch (err) {
                 error.value = err.response?.data?.message || 'Error fetching fails';
             }
-        };
+        }; */
 
         const viewFailLog = async() => {
 
@@ -129,13 +110,12 @@ export default {
         };
 
         onMounted(() => {
-            getFail();
+            refreshFailedLogs();
         });
 
         return {
-            fails,
-            error,
-            getFail,
+            failsCount,
+            refreshFailedLogs,
             viewFailLog,
             isLoggedIn,
             handleLogout

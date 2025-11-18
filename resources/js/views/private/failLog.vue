@@ -36,9 +36,11 @@
                     <th scope="col" class="py-3 px-4">
                         <input type="checkbox" @click="toggleSelectAll" :checked="isAllSelected">
                     </th>
-                    <th scope="col" class="py-3 px-4">ID</th>
-                    <th scope="col" class="py-3 px-4">Question Text</th>
+                    <th scope="col" class="py-3 px-4">Log ID</th>
+                    <th scope="col" class="py-3 px-4">User Question</th>
                     <th scope="col" class="py-3 px-4">Status</th>
+                    <th scope="col" class="py-3 px-4">Details</th>
+                    <th scope="col" class="py-3 px-4">Action</th>
                 </tr>
             </thead>
             <tbody>
@@ -55,6 +57,8 @@
                         <span v-else-if="fail.status == 1" class="text-success fw-bold">Success</span>
                         <span v-else class="failed-text">Failed</span>
                     </td>
+                    <td class="py-3 px-4">Relevant Knowledge Not Available</td>
+                    <td class="py-3 px-4"><button class="btn btn-primary " @click="createFAQs(fail)">Insert New FAQs</button></td>
                 </tr>
             </tbody>
         </table>
@@ -64,15 +68,25 @@
 <script>
 import { ref, onMounted, computed } from 'vue';
 import axios from 'axios';
-import { useRouter } from 'vue-router'; // Assuming you have Vue Router available
+import Swal from 'sweetalert2';
+import { useDataFetcher } from '../../services/dataFetcher';
+import { useFailedLogStore } from '../../services/useFailsLog';
+
 
 export default {
     setup() {
-        const router = useRouter(); // Initialize router if needed for future use
+        const { refreshFailedLogs } = useFailedLogStore();
         const fails = ref([]);
         const loading = ref(true); // Added loading state
         const error = ref(null);
         const token = localStorage.getItem('sanctum_token');
+
+        const {
+            intents,
+            departments,
+            getIntents,
+            getDepartments,
+        } = useDataFetcher();
 
         // State for tracking which logs are selected by the user
         const selectedLogIds = ref([]);
@@ -95,17 +109,17 @@ export default {
 
         const getFail = async() => {
             loading.value = true;
-            error.value = null; // Clear previous errors
+            error.value = null;
             try {
-                // Assuming the backend endpoint is '/api/selectFailedLogs'
-                const response = await axios.get('/api/selectFailedLogs', {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                fails.value = response.data;
+                // We call the shared refresh function here. It returns the full array.
+                const logs = await refreshFailedLogs();
+                fails.value = logs; // Update local state with the full logs array
             }
             catch (err) {
+                // The error handling in the store should catch the network error,
+                // but we keep this for local display error.
                 error.value = err.response?.data?.message || 'Error fetching failed logs';
-                fails.value = []; // Clear list on error
+                fails.value = [];
             } finally {
                 loading.value = false;
             }
@@ -147,6 +161,77 @@ export default {
             }
         };
 
+        const createFAQs = async (fails) => {
+
+            await getDepartments();
+            await getIntents();
+
+
+            // Modified to use selectedIntentId/selectedDepartmentId and handle null values
+            const deptOptions = departments.value.map(dept => `<option value="${dept.id}">${dept.name}</option>`).join('');
+            const intentOptions = intents.value.map(intent => `<option value="${intent.id}">${intent.intent_name}</option>`).join('');
+
+            const { value: formValues } = await Swal.fire({
+                title: 'Create',
+                html:
+                    // ... (HTML unchanged) ...
+                    // Added option value="null" to allow unassignment in creation
+                    `<div class="swal2-input-group">
+                        <label for="question">Question</label>
+                        <input id="question" class="swal2-input" placeholder="Question" value="${fails.question_text}">
+                    </div>
+                    <div class="swal2-input-group">
+                        <label for="answer">Answer</label>
+                        <input id="answer" class="swal2-input" placeholder="Answer">
+                    </div>
+                    <div class="swal2-input-group">
+                        <label for="intent">Intent</label>
+                        <select id="intent" class="swal2-input" style="margin-left: 40px;">
+                            <option value="" disabled selected>Select Intent</option>
+                            <option value="null">None</option>
+                            ${intentOptions}
+                        </select>
+                    </div>
+                    <div class="swal2-input-group">
+                        <label for="department" ">Department</label>
+                        <select id="department" class="swal2-input" style="margin-left: 40px;">
+                            <option value="" disabled selected>Select Department</option>
+                            <option value="null">None</option>
+                            ${deptOptions}
+                        </select>
+                    </div>`,
+                focusConfirm: false,
+                showCancelButton: true,
+                cancelButtonText: 'Cancel',
+                customClass: { container: 'swal2-custom-wide'},
+
+                preConfirm: () => {
+                    const intentValue = document.getElementById('intent').value;
+                    const departmentValue = document.getElementById('department').value;
+                    return {
+                        question: document.getElementById('question').value,
+                        answer: document.getElementById('answer').value,
+                        intent_id: intentValue === 'null' ? null : intentValue,
+                        department_id: departmentValue === 'null' ? null : departmentValue,
+                    };
+                }
+            });
+
+            if (formValues) {
+                if(token){
+                    try {
+                        await axios.post(`/api/insertAndMark/${fails.id}`, formValues, {
+                            headers: { Authorization: `Bearer ${token}` }
+                        });
+                        await getFail();
+                        Swal.fire('Created!', 'New FAQ has been created.', 'success');
+                    } catch (err) {
+                        Swal.fire('Error', err.response?.data?.message || 'Could not create FAQ', 'error');
+                    }
+                }
+            }
+        };
+
 
         onMounted(() => {
             getFail();
@@ -161,6 +246,12 @@ export default {
             toggleSelectAll,
             getFail,
             markSelectedAsChecked,
+            intents,
+            departments,
+            getIntents,
+            getDepartments,
+            createFAQs,
+            refreshFailedLogs
         };
     }
 };

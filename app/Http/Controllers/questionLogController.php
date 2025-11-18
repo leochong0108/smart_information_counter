@@ -5,6 +5,9 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\QuestionLog;
+use App\Models\Faq;
+
+
 
 class questionLogController extends Controller
 {
@@ -59,6 +62,44 @@ class questionLogController extends Controller
             'message' => "{$count} Question Logs marked as checked successfully.",
             'updated_count' => $count
         ]);
+    }
+
+    public function insertAndMark(Request $request, $id){
+
+        $questionLog = QuestionLog::find($id);
+
+        if(!$questionLog){
+            return response()->json(['message' => 'Question Log not found'], 404);
+        }
+
+        $request->merge([
+            'intent_id' => $request->intent_id === 'null' || $request->intent_id === '' ? null : $request->intent_id,
+            'department_id' => $request->department_id === 'null' || $request->department_id === '' ? null : $request->department_id,
+        ]);
+
+        $request->validate([
+            'question' => 'required|string',
+            'answer' => 'required|string',
+            'intent_id' => 'nullable|exists:intents,id',
+            'department_id' => 'nullable|exists:departments,id',
+        ]);
+
+        $faq = Faq::create($request->all());
+
+        $Marked =QuestionLog::where('id', $id)
+        ->update(['checked' => true]);
+
+        return response()->json([
+
+            'message' => 'FAQ created and Question Log marked successfully.',
+            'question_log_status' => [
+                'id_marked' => (int)$id,
+                'rows_updated' => $Marked,
+            ],
+            'new_faq' => $faq,
+
+        ], 201);
+
     }
 
     public function exportExcel()
