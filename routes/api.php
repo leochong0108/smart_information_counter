@@ -57,11 +57,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/findQuestionLogs/{id}', [questionLogController::class, 'show']);
     Route::get('/selectFailedLogs', [questionLogController::class, 'selectFail']);
     Route::post('/mark-failed-logs', [QuestionLogController::class, 'markSelectedAsChecked']);
+    Route::post('/insertAndMark/{id}', [questionLogController::class, 'insertAndMark']);
+
 
     Route::get('/top10Faqs', [statisticController::class, 'selectMost10']);
+    Route::get('/top10ForChat', [statisticController::class, 'selectTop10ForChat']);
     Route::get('/totalIntents', [statisticController::class, 'totalIntents']);
-    Route::get('/totalQuestions', [statisticController::class, 'totalQuestions']);
-    Route::get('/totalFail',[statisticController::class, 'totalFail']);
+    Route::get('/getDashboardMetrics', [statisticController::class, 'getDashboardMetrics']);
 });
 
 

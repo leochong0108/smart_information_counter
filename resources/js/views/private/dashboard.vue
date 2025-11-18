@@ -1,54 +1,67 @@
 <template>
 <div class="container-fluid mt-4">
     <div class="row">
-    <div class="col-12 col-md-3 mb-3">
+    <div class="col-12 col-md-3 mb-1">
             <div class="metric-card card text-white bg-primary">
                 <div class="card-body">
                     <div class="metric-title">Total Queries</div>
                     <div class="metric-value display-4 font-weight-bold">
-                        {{ totalQuestions }}
+                        {{ totalQuestions.totalQuestions }}
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-12 col-md-3 mb-3">
-            <div class="metric-card card text-white bg-success">
-                <div class="card-body">
-                    <div class="metric-title">Total Like</div>
-                    <div class="metric-value display-4 font-weight-bold">
-                        17.6K
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-12 col-md-3 mb-3">
+        <div class="col-12 col-md-3 mb-1">
             <div class="metric-card card text-white bg-info">
                 <div class="card-body">
                     <div class="metric-title">Total Success</div>
                     <div class="metric-value display-4 font-weight-bold">
-                        {{ totalQuestions }}
+                        {{ totalQuestions.totalSuccess }}
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-12 col-md-3 mb-3">
+        <div class="col-12 col-md-3 mb-1">
             <div class="metric-card card text-white bg-purple">
                 <div class="card-body">
                     <div class="metric-title">Total Failed</div>
                     <div class="metric-value display-4 font-weight-bold">
-                        {{ totalFail }}
+                        {{ totalQuestions.totalFail }}
                     </div>
                 </div>
             </div>
+        </div>
+
+        <div class="col-12 col-md-3 mb-1">
+            <div class="metric-card card bg-light mb-2 p-2">
+                <div class="d-flex flex-column">
+                    <input type="date" v-model="customStartDate" class="form-control form-control-sm mb-1">
+                    <div class="d-flex align-items-center">
+                         <input type="date" v-model="customEndDate" class="form-control form-control-sm me-1">
+                         <button @click="fetchCustomRangeData" class="btn btn-sm btn-primary flex-shrink-0">Go</button>
+                    </div>
+                </div>
+                <div class="d-flex flex-column mt-1">
+                    <select v-model="selectedFilter" class="form-select form-select-sm">
+                        <option value="all-time">All Time</option>
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                        <option value="yearly">Yearly</option>
+                    </select>
+                </div>
+            </div>
+
+
         </div>
     </div>
 
 <div class="row">
     <div class="col-12 col-md-6 mt-4">
         <div class="card p-1">
-            <h3>Total Intent Queries Bar Chart</h3>
+            <h3>Intent Queries</h3>
             <div style="height: auto; ">
                 <BarChart
                     :chart-data="chartData"
@@ -61,14 +74,14 @@
     </div>
     <div class="col-12 col-md-6 mt-4">
         <div class="card p-1">
-            <h3>Total Intent Queries Pie chart</h3>
+            <h3>Department Queries</h3>
             <div style="height: auto; ">
                 <PieChart
-                    :chart-data="chartData"
+                    :chart-data="departmentChartData"
                     :options="pieChartOptions"
-                    v-if="chartData.datasets.length && chartData.datasets[0].data.length"
+                    v-if="departmentChartData.datasets.length && departmentChartData.datasets[0].data.length"
                 />
-                <p v-else class="text-center">No intent data available for chart.</p>
+                <p v-else class="text-center">No department data available for chart.</p>
             </div>
         </div>
     </div>
@@ -79,15 +92,6 @@
             <div class="card p-3">
             <div class="d-flex align-items-center justify-content-between mb-1">
                 <h3>Top 10 FAQs</h3>
-                <div>
-                    <select v-model="selectedFilter" class="form-select me-2" style="width: auto;">
-                        <option value="all-time">All Time</option>
-                        <option value="daily">Daily</option>
-                        <option value="weekly">Weekly</option>
-                        <option value="monthly">Monthly</option>
-                        <option value="yearly">Yearly</option>
-                    </select>
-                </div>
             </div>
 
                 <div v-if="loading" class="text-center" style="padding: 13rem;">
@@ -96,11 +100,11 @@
                     </div>
                 </div>
 
-                <div v-if="!top10FAQs.length">
+                <div v-if="!top10FAQs.Faq?.length">
                     <p>No Data available. Please add some.</p>
                 </div>
 
-                <div v-if="top10FAQs.length" >
+                <div v-if="top10FAQs.Faq?.length" >
                     <table class="table table-hover">
                         <thead>
                             <tr>
@@ -109,8 +113,9 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="(TOP, index) in top10FAQs" :key="TOP.id">
-                                <td>{{ index + 1 }}</td> <td>{{ TOP.question }}</td>
+                            <tr v-for="(TOP, index) in top10FAQs.Faq" :key="TOP.id">
+                                <td>{{ index + 1 }}</td>
+                                <td>{{ TOP.question }}</td>
                                 <td>{{ TOP.total }}</td>
                             </tr>
                         </tbody>
@@ -123,16 +128,7 @@
         <div class="col-12 col-md-6 mt-4">
             <div class="card p-3">
                 <div class="d-flex align-items-center justify-content-between mb-1">
-                    <h3>Top 10 FAQs</h3>
-                    <div>
-                        <select v-model="selectedFilter" class="form-select me-2" style="width: auto;">
-                            <option value="all-time">All Time</option>
-                            <option value="daily">Daily</option>
-                            <option value="weekly">Weekly</option>
-                            <option value="monthly">Monthly</option>
-                            <option value="yearly">Yearly</option>
-                        </select>
-                    </div>
+                    <h3>Top 10</h3>
                 </div>
 
                 <div v-if="loading" class="text-center" style="padding: 13rem;">
@@ -141,11 +137,11 @@
                     </div>
                 </div>
 
-                <div v-if="!top10FAQs.length">
+                <div v-if="!top10FAQs.Faq?.length">
                     <p>No Data available. Please add some.</p>
                 </div>
 
-                <div v-if="top10FAQs.length" >
+                <div v-if="top10FAQs.Faq?.length" >
                     <table class="table table-hover">
                         <thead>
                             <tr>
@@ -154,7 +150,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="TOP in top10FAQs" :key="TOP.id">
+                            <tr v-for="TOP in top10FAQs.Faq" :key="TOP.id">
                                 <td>{{ TOP.question }}</td>
                                 <td>{{ TOP.total }}</td>
                             </tr>
@@ -190,27 +186,29 @@ export default {
 
         const {
             totalQuestions,
-            totalFail,
             getTotalQuestions,
-            getTotalFail
 
         }
         = useDataFetcher();
 
-        const top10FAQs = ref([]);
-        const totalIntents = ref([]);
+        const top10FAQs = ref({});
+       // const totalIntents = ref([]);
         const loading = ref(true);
         const selectedFilter = ref('all-time');
         const error = ref(null);
         const token = localStorage.getItem('sanctum_token');
+        const customStartDate = ref(null);
+        const customEndDate = ref(null);
 
         const chartData = computed(() => {
-            if(!totalIntents.value || !Array.isArray(totalIntents.value)|| totalIntents.value.length === 0){
+            const inetentData = top10FAQs.value.Intent;
+
+            if(!inetentData || !Array.isArray(inetentData)|| inetentData.length === 0){
                 return { labels: [], datasets: []};
             }
 
-            const labels = totalIntents.value.map(item => item.intent_name);
-            const data = totalIntents.value.map(item => item.total);
+            const labels = inetentData.map(item => item.intent_name);
+            const data = inetentData.map(item => item.total);
 
             const backgroundColors = [
                 '#0d6efd', '#6f42c1', '#dc3545', '#fd7e14', '#ffc107',
@@ -223,6 +221,38 @@ export default {
                     {
                         // This will be used for both bar and pie charts
                         label: 'Total Queries per Intent',
+                        backgroundColor: backgroundColors.slice(0, data.length), // Use one color per bar/slice
+                        data: data,
+                        // Only needed for Bar Chart (optional styling)
+                        borderColor: 'rgba(0,0,0,0.1)',
+                        borderWidth: 1
+                    },
+                ]
+            };
+
+        });
+
+        const departmentChartData = computed(() => {
+            const departmentData = top10FAQs.value.Department;
+
+            if(!departmentData || !Array.isArray(departmentData)|| departmentData.length === 0){
+                return { labels: [], datasets: []};
+            }
+
+            const labels = departmentData.map(item => item.name);
+            const data = departmentData.map(item => item.total);
+
+            const backgroundColors = [
+                '#0d6efd', '#6f42c1', '#dc3545', '#fd7e14', '#ffc107',
+                '#198754', '#20c997', '#0dcaf0', '#adb5bd', '#343a40'
+            ];
+
+            return {
+                labels: labels,
+                datasets: [
+                    {
+                        // This will be used for both bar and pie charts
+                        label: 'Total Queries per Department',
                         backgroundColor: backgroundColors.slice(0, data.length), // Use one color per bar/slice
                         data: data,
                         // Only needed for Bar Chart (optional styling)
@@ -298,11 +328,20 @@ export default {
                 loading.value = true;
                 error.value = null;
                 try {
-                    // ⚙️ Pass the filter as a query parameter
-                    const response = await axios.get(`/api/top10Faqs?filter=${filter}`, {
+                    // 🏗️ Build query string
+                    let apiUrl = `/api/top10Faqs?filter=${filter}`;
+
+                    // ✨ Conditional addition of date range to query string
+                    if (filter === 'custom-range' && customStartDate.value && customEndDate.value) {
+                        apiUrl += `&startDate=${customStartDate.value}&endDate=${customEndDate.value}`;
+                    }
+
+                    const response = await axios.get(apiUrl, {
                         headers: { Authorization: `Bearer ${token}` }
                     });
+
                     top10FAQs.value = response.data;
+
                     console.log(top10FAQs.value);
                 } catch (err) {
                     error.value = err.response?.data?.message || 'Error fetching top 10 FAQs';
@@ -314,7 +353,16 @@ export default {
             }
         };
 
-        const getTotalIntents = async () => {
+const fetchCustomRangeData = () => {
+    if (customStartDate.value && customEndDate.value) {
+        // Force the filter to 'custom-range' for the API call
+        getTop10FAQs('custom-range', customStartDate.value, customEndDate.value);
+    } else {
+        alert('Please select both a start and end date for the custom range.');
+    }
+};
+
+/*         const getTotalIntents = async () => {
             if (token) {
                 try {
                     const response = await axios.get('/api/totalIntents', {
@@ -326,24 +374,28 @@ export default {
                     error.value = err.response?.data?.message || 'Error fetching total intents';
                 }
             }
-        };
+        }; */
 
-        // 🔄 Watch for changes in selectedFilter and fetch new data
+// 🔄 Watch for changes in selectedFilter
         watch(selectedFilter, (newFilter) => {
-            getTop10FAQs(newFilter);
-        }, { immediate: true }); // immediate: true fetches data on component mount
+            // Only automatically fetch data for preset filters
+            if (newFilter !== 'custom-range') {
+                getTop10FAQs(newFilter);
+            }
+            // For 'custom-range', the user must click 'Go' (via fetchCustomRangeData)
+            // to prevent fetching with null dates immediately upon selection.
+        }, { immediate: true });
 
         onMounted(async () => {
  /*            await getFAQs();
             await getDepartments();
             await getIntents(); */
-            await getTotalIntents();
+            //await getTotalIntents();
             await getTotalQuestions();
-            await getTotalFail();
         });
 
         return {
-            totalIntents,
+            //totalIntents,
             totalQuestions,
             top10FAQs,
             selectedFilter,
@@ -352,11 +404,13 @@ export default {
             barChartOptions,
             pieChartOptions,
             chartData,
-            totalFail,
+            departmentChartData,
             getTop10FAQs,
             getTotalQuestions,
-            getTotalIntents,
-            getTotalFail
+            //getTotalIntents,
+            customStartDate, // Make new refs available to the template
+            customEndDate,
+            fetchCustomRangeData, // Make new function available to the template
         };
     }
 }

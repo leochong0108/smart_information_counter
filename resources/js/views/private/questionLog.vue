@@ -1,50 +1,102 @@
 
 <template>
-    <div class="d-flex align-items-center justify-content-between mb-2">
-        <h1>Question Log</h1>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <h1>Question Log</h1>
+            </div>
+            <div class="d-flex gap-2">
+                <button @click="exportLogs" class="btn btn-success">
+                    <i class="fas fa-plus-circle"></i> Export excel
+                </button>
+            </div>
+        </div>
 
-        <div class="d-flex gap-2">
-            <button @click="exportLogs" class="btn btn-success">
-                <i class="fas fa-plus-circle"></i> Export excel
-            </button>
+<!--         <div class="row">
+
+            <div class="col-md-5">
+                <input
+                    type="text"
+                    v-model="searchTerm"
+                    class="form-control"
+                    placeholder="Search by question, answer, or ID..."
+                />
+            </div>
+
+
+            <div class="col-md-3">
+                <select v-model="selectedIntentId" class="form-select">
+                    <option value="">All Intents</option>
+                    <option
+                        v-for="intent in intents"
+                        :key="intent.id"
+                        :value="intent.id"
+                    >
+                        {{ intent.intent_name }}
+                    </option>
+                    <option :value="null">Unassigned Intent</option>
+                </select>
+            </div>
+
+
+            <div class="col-md-3">
+                <select v-model="selectedDepartmentId" class="form-select">
+                    <option value="">All Departments</option>
+                    <option
+                        v-for="dept in departments"
+                        :key="dept.id"
+                        :value="dept.id"
+                    >
+                        {{ dept.name }}
+                    </option>
+                    <option :value="null">Unassigned Department</option>
+                </select>
+            </div>
+        </div> -->
+
+        <div class="row">
+            <div class="col-md-12">
+                <div v-if="loading" class="text-center" style="padding: 13rem;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+
+                <div v-if="!logs.length">
+                    <p>No Data available.</p>
+                </div>
+
+                <div v-if="logs.length" >
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th scope="col">ID</th>
+                                <th scope="col">Question</th>
+                                <th scope="col">Answer</th>
+                                <th scope="col">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="log in logs" :key="log.id">
+                                <td>{{ log.id }}</td>
+                                <td>{{ log.question_text }}</td>
+                                <td v-if="log.answer_text == null">-</td>
+                                <td v-else>{{ log.answer_text }}</td>
+                                <td v-if="log.status == null">
+                                    -
+                                </td>
+                                <td v-else-if="log.status == 1">Success</td>
+                                <td v-else class="failed-text">Failed</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div v-if="loading" class="text-center" style="padding: 13rem;">
-        <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
-        </div>
-    </div>
 
-    <div v-if="!logs.length">
-        <p>No Data available.</p>
-    </div>
 
-    <div v-if="logs.length" >
-        <table class="table table-hover">
-            <thead>
-                <tr>
-                    <th scope="col">ID</th>
-                    <th scope="col">Question</th>
-                    <th scope="col">Answer</th>
-                    <th scope="col">Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr v-for="log in logs" :key="log.id">
-                    <td>{{ log.id }}</td>
-                    <td>{{ log.question_text }}</td>
-                    <td v-if="log.answer_text == null">-</td>
-                    <td v-else>{{ log.answer_text }}</td>
-                    <td v-if="log.status == null">
-                        -
-                    </td>
-                    <td v-else-if="log.status == 1">Success</td>
-                    <td v-else class="failed-text">Failed</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
 </template>
 
 <script>
