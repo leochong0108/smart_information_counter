@@ -61,12 +61,6 @@ class aiChatBotController extends Controller
 
         if (empty($context)) {
 
-            QuestionLog::create([
-                'question_text' => $question,
-                'status' => false,
-                'checked' => false,
-            ]);
-
             return "I couldn't find a matching FAQ for that question.";
         }
 
@@ -256,7 +250,7 @@ class aiChatBotController extends Controller
             The knowledge base provided the following information: '{$fallbackAnswer}'.
             You are a polite chatbot for Southern University College.
             Please rephrase and integrate this information into a single, natural, and conversational response.
-            Do not add or invent any new information beyond the facts provided.
+            Do not add or invent any new information beyond the facts provided, always greeting before answer like Hi,then asnwer.
             Your final answer should be ONLY the natural language response.";
 
             $naturalReply = $gemini->generateText($integrationPrompt);
@@ -284,12 +278,6 @@ class aiChatBotController extends Controller
 
             return response()->json(['reply' => $naturalReply]);
         }
-
-        QuestionLog::create([
-            'question_text' => $question,
-            'status' => false,
-            'checked' => false,
-        ]);
 
         // 🗣️ Step 4: Otherwise, return Gemini's direct reply or final error
         return response()->json(['reply' => is_string($response) ? $response : "Sorry, I don't have that information yet."]);
