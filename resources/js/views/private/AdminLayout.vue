@@ -1,5 +1,5 @@
 <template>
-    <nav class="navbar navbar-expand-lg bg-body-tertiary">
+    <nav class="navbar navbar-expand-lg bg-body-tertiary shadow-lg rounded-lg">
         <div class="container-fluid">
             <h1 class="navbar-brand" >
                 <RouterLink to="/admin/" class="nav-link active" aria-current="page">

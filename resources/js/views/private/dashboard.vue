@@ -34,23 +34,34 @@
             </div>
         </div>
 
-        <div class="col-12 col-md-3 mb-1">
-            <div class="metric-card card bg-light mb-2 p-2">
+        <div class="col-12 col-md-3 mb-1 ">
+            <div class="metric-card card bg-light mb-2 p-2 ">
                 <div class="d-flex flex-column">
-                    <input type="date" v-model="customStartDate" class="form-control form-control-sm mb-1">
                     <div class="d-flex align-items-center">
-                         <input type="date" v-model="customEndDate" class="form-control form-control-sm me-1">
-                         <button @click="fetchCustomRangeData" class="btn btn-sm btn-primary flex-shrink-0">Go</button>
+                     <select v-model="selectedFilter" class="form-select form-select-sm">
+                            <option value="all-time">All Time</option>
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="monthly">Monthly</option>
+                            <option value="yearly">Yearly</option>
+                        </select>
                     </div>
                 </div>
+
                 <div class="d-flex flex-column mt-1">
-                    <select v-model="selectedFilter" class="form-select form-select-sm">
-                        <option value="all-time">All Time</option>
-                        <option value="daily">Daily</option>
-                        <option value="weekly">Weekly</option>
-                        <option value="monthly">Monthly</option>
-                        <option value="yearly">Yearly</option>
-                    </select>
+                    <div class="d-flex align-items-center">
+                        <input type="date" v-model="customStartDate" class="form-control form-control-sm me-1">
+                         <input type="date" v-model="customEndDate" class="form-control form-control-sm ">
+                    </div>
+                </div>
+
+                <div class="d-flex flex-column mt-1">
+                    <div class="d-flex align-items-center ">
+                        <button @click="fetchCustomRangeData" class="btn btn-sm btn-primary flex-shrink-0 me-1"><i class="bi bi-search me-1"></i>Search</button>
+                        <button @click="exportAllData" class="btn btn-sm btn-success flex-shrink-0 ">
+                            <i class="bi bi-download me-1"></i> Export All Data
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -200,6 +211,13 @@ export default {
         const customStartDate = ref(null);
         const customEndDate = ref(null);
 
+        const getRandomColor = () => {
+            // Generate a random number up to 16777215 (which is FFFFFF in hex)
+            // Convert it to a hexadecimal string
+            // Pad the start with zeros to ensure it's always 6 characters long
+            return '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+        };
+
         const chartData = computed(() => {
             const inetentData = top10FAQs.value.Intent;
 
@@ -210,10 +228,11 @@ export default {
             const labels = inetentData.map(item => item.intent_name);
             const data = inetentData.map(item => item.total);
 
-            const backgroundColors = [
+/*             const backgroundColors = [
                 '#0d6efd', '#6f42c1', '#dc3545', '#fd7e14', '#ffc107',
                 '#198754', '#20c997', '#0dcaf0', '#adb5bd', '#343a40'
-            ];
+            ]; */
+            const randomColors = data.map(() => getRandomColor());
 
             return {
                 labels: labels,
@@ -221,11 +240,12 @@ export default {
                     {
                         // This will be used for both bar and pie charts
                         label: 'Total Queries per Intent',
-                        backgroundColor: backgroundColors.slice(0, data.length), // Use one color per bar/slice
+                        //backgroundColor: backgroundColors.slice(0, data.length), // Use one color per bar/slice
+                        backgroundColor: randomColors,
                         data: data,
                         // Only needed for Bar Chart (optional styling)
                         borderColor: 'rgba(0,0,0,0.1)',
-                        borderWidth: 1
+                        borderWidth: 1,
                     },
                 ]
             };
@@ -242,10 +262,7 @@ export default {
             const labels = departmentData.map(item => item.name);
             const data = departmentData.map(item => item.total);
 
-            const backgroundColors = [
-                '#0d6efd', '#6f42c1', '#dc3545', '#fd7e14', '#ffc107',
-                '#198754', '#20c997', '#0dcaf0', '#adb5bd', '#343a40'
-            ];
+            const randomColors = data.map(() => getRandomColor());
 
             return {
                 labels: labels,
@@ -253,7 +270,7 @@ export default {
                     {
                         // This will be used for both bar and pie charts
                         label: 'Total Queries per Department',
-                        backgroundColor: backgroundColors.slice(0, data.length), // Use one color per bar/slice
+                        backgroundColor: randomColors, // Use one color per bar/slice
                         data: data,
                         // Only needed for Bar Chart (optional styling)
                         borderColor: 'rgba(0,0,0,0.1)',
@@ -268,11 +285,13 @@ export default {
             responsive: true,
             maintainAspectRatio: false,
             scales: {
+                x: { stacked: true },
                 y: {
+                    stacked: true,
                     beginAtZero: true,
                     title: {
                         display: true,
-                        text: 'Query Count'
+                        text: 'Query Count',
                     },
                     // Ensure integer ticks for counts
                     ticks: {
@@ -281,6 +300,12 @@ export default {
                 }
             },
             plugins: {
+                datalabels: {
+                    color: '#fff', // Set font color to White
+                    font: {
+                        weight: 'bold' // Set font weight to Bold
+                    }
+                },
                 legend: {
                     display: false // Hide legend for bar chart
                 },
@@ -314,12 +339,24 @@ export default {
 
                         // Calculate percentage, round to one decimal, and add '%' symbol
                         let percentage = (value * 100 / sum).toFixed(1) + "%";
-                        return percentage;
+                        return `${value} times\n(${percentage})`;
                     },
                     font: {
                         weight: 'bold' // Bold font for better visibility
                     }
-                }
+                },
+                tooltip: {
+        callbacks: {
+            label: function(context) {
+                // This creates the custom text in the tooltip box
+                const label = context.label || '';
+                const total = context.formattedValue; // The raw count
+                const percentage = (context.parsed / context.dataset.data.reduce((a, b) => a + b, 0) * 100).toFixed(1);
+
+                return `${label}: ${total} (${percentage}%)`;
+            }
+        }
+    }
             }
         });
 
@@ -411,6 +448,7 @@ const fetchCustomRangeData = () => {
             customStartDate, // Make new refs available to the template
             customEndDate,
             fetchCustomRangeData, // Make new function available to the template
+            getRandomColor,
         };
     }
 }

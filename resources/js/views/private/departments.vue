@@ -1,55 +1,90 @@
 <template>
-    <div class="d-flex align-items-center justify-content-between mb-2">
-        <h1>Departments Management</h1>
+    <div class="container-fluid">
+        <div class="row">
+                <div class="col-12 d-flex align-items-center justify-content-between mb-2">
+                    <h1>Departments Management</h1>
 
-        <button @click="createDepartments" class="btn btn-primary">
-            <i class="fas fa-plus-circle"></i> + Add New
-        </button>
-    </div>
-
-    <div v-if="loading" class="text-center" style="padding: 13rem;">
-        <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
+                    <button @click="createDepartments" class="btn btn-primary">
+                        <i class="fas fa-plus-circle"></i> + Add New
+                    </button>
+                </div>
         </div>
+        <div class="row mb-3">
+                <div class="col-md-5">
+                    <input
+                        type="text"
+                        v-model="searchTerm"
+                        class="form-control"
+                        placeholder="Search by department, description, location, contact info, or ID"
+                    />
+                </div>
+
+                <!-- Department Filter -->
+                <div class="col-md-3">
+                    <select v-model="selectedDepartmentId" class="form-select">
+                        <option value="">All Departments</option>
+                        <option
+                            v-for="dept in departments"
+                            :key="dept.id"
+                            :value="dept.id"
+                        >
+                            {{ dept.name }}
+                        </option>
+                        <option :value="null">Unassigned Department</option>
+                    </select>
+                </div>
+        </div>
+        <div class="row">
+            <div class="col-md-12 shadow-lg rounded-lg">
+                <div v-if="loading" class="text-center" style="padding: 13rem;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+
+                <div v-if="!filteredDepartments.length">
+                    <p>No Data available. Please add some.</p>
+                </div>
+
+                <div v-if="filteredDepartments.length" >
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th scope="col">ID</th>
+                                <th scope="col">Name</th>
+                                <th scope="col">Description</th>
+                                <th scope="col">Location</th>
+                                <th scope="col">Contact Info</th>
+                                <th scope="col">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="department in filteredDepartments" :key="department.id">
+                                <td>{{ department.id }}</td>
+                                <td>{{ department.name }}</td>
+                                <td>{{ department.description }}</td>
+                                <td>{{ department.location }}</td>
+                                <td>{{ department.contact_info }}</td>
+                                <td>
+                                    <div class="d-flex">
+                                    <button class="btn btn-success" @click="editDepartments(department)"><i class="fas fa-edit"></i>&nbsp;Edit</button>
+                                    <button class="btn btn-danger ms-2" @click="deleteDepartments(department.id)"><i class="fas fa-trash-alt"></i>&nbsp;Delete</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+
     </div>
 
-    <div v-if="!departments.length">
-        <p>No Data available. Please add some.</p>
-    </div>
-
-    <div v-if="departments.length" >
-        <table class="table table-hover">
-            <thead>
-                <tr>
-                    <th scope="col">ID</th>
-                    <th scope="col">Name</th>
-                    <th scope="col">Description</th>
-                    <th scope="col">Location</th>
-                    <th scope="col">Contact Info</th>
-                    <th scope="col">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr v-for="department in departments" :key="department.id">
-                    <td>{{ department.id }}</td>
-                    <td>{{ department.name }}</td>
-                    <td>{{ department.description }}</td>
-                    <td>{{ department.location }}</td>
-                    <td>{{ department.contact_info }}</td>
-                    <td>
-                        <div class="d-flex">
-                        <button class="btn btn-success" @click="editDepartments(department)"><i class="fas fa-edit"></i>&nbsp;Edit</button>
-                        <button class="btn btn-danger ms-2" @click="deleteDepartments(department.id)"><i class="fas fa-trash-alt"></i>&nbsp;Delete</button>
-                        </div>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
 </template>
 
 <script>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 
@@ -58,6 +93,9 @@ export default {
         const departments = ref([]);
         const error = ref(null);
         const token = localStorage.getItem('sanctum_token');
+
+        const searchTerm = ref('');
+        const selectedDepartmentId = ref(''); // Bound to the Department dropdown
 
         const getDepartments = async () => {
 
@@ -203,6 +241,30 @@ export default {
             }
         };
 
+        const filteredDepartments = computed(() => {
+            let data = departments.value;
+
+            // A. Apply Text Search (Question, Answer, ID)
+            if (searchTerm.value) {
+                const searchLower = searchTerm.value.toLowerCase();
+                data = data.filter(dpt =>
+                    dpt.name?.toLowerCase().includes(searchLower) ||
+                    dpt.description?.toLowerCase().includes(searchLower) ||
+                    dpt.location?.toLowerCase().includes(searchLower) ||
+                    dpt.contact_info?.toLowerCase().includes(searchLower) ||
+                    dpt.id?.toString().includes(searchTerm.value)
+                );
+            }
+
+            if (selectedDepartmentId.value !== '') {
+                // Department IDs are usually numbers, unless 'null' is passed for unassigned
+                const deptFilterValue = selectedDepartmentId.value === null ? null : parseInt(selectedDepartmentId.value);
+                data = data.filter(dpt => dpt.id === deptFilterValue);
+            }
+
+            return data;
+        });
+
         onMounted(() => {
             getDepartments();
         });
@@ -214,6 +276,9 @@ export default {
             createDepartments,
             editDepartments,
             deleteDepartments,
+            searchTerm,
+            selectedDepartmentId,
+            filteredDepartments
         };
     }
 };

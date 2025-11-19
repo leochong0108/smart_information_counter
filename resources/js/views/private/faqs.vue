@@ -16,10 +16,10 @@
             </button>
         </div>
     </div>
-</div>
+    </div>
 
 <!-- 🟢 NEW: Search and Filter Row -->
-<div class="row mb-4">
+<div class="row mb-3">
     <!-- Search Bar -->
     <div class="col-md-5">
         <input
@@ -65,7 +65,7 @@
 
 <div class="row">
 
-    <div class="col-12 ">
+    <div class="col-12 shadow-lg rounded-lg">
     <!-- Simplified loading check for brevity -->
     <div v-if="loading" class="text-center" style="padding: 13rem;">
         <div class="spinner-border text-primary" role="status">

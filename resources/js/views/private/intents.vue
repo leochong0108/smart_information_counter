@@ -16,23 +16,65 @@
             </button>
         </div>
     </div>
-</div>
+    </div>
+
+    <div class="row mb-3">
+            <!-- Search Bar -->
+        <div class="col-md-5">
+            <input
+                type="text"
+                v-model="searchTerm"
+                class="form-control"
+                placeholder="Search by intent or ID..."
+            />
+        </div>
+
+        <!-- Intent Filter -->
+        <div class="col-md-3">
+            <select v-model="selectedIntentId" class="form-select">
+                <option value="">All Intents</option>
+                <option
+                    v-for="intent in intents"
+                    :key="intent.id"
+                    :value="intent.id"
+                >
+                    {{ intent.intent_name }}
+                </option>
+                <option :value="null">Unassigned Intent</option>
+            </select>
+        </div>
+
+        <!-- Department Filter -->
+        <div class="col-md-3">
+            <select v-model="selectedDepartmentId" class="form-select">
+                <option value="">All Departments</option>
+                <option
+                    v-for="dept in departments"
+                    :key="dept.id"
+                    :value="dept.id"
+                >
+                    {{ dept.name }}
+                </option>
+                <option :value="null">Unassigned Department</option>
+            </select>
+        </div>
+    </div>
 
 
 <div class="row">
 
-    <div class="col-12 ">
+    <div class="col-12 shadow-lg rounded-lg">
     <div v-if="loading" class="text-center" style="padding: 13rem;">
         <div class="spinner-border text-primary" role="status">
             <span class="visually-hidden">Loading...</span>
         </div>
     </div>
 
-    <div v-if="!intents.length && !loading">
+    <div v-if="!filteredIntents.length && !loading">
         <p>No Intent Data available. Please add some.</p>
     </div>
 
-    <div v-if="intents.length && !loading" >
+    <div v-if="filteredIntents.length && !loading" >
         <table class="table table-hover">
             <thead>
                 <tr>
@@ -43,7 +85,7 @@
                 </tr>
             </thead>
             <tbody>
-                <tr v-for="intent in intents" :key="intent.id">
+                <tr v-for="intent in filteredIntents" :key="intent.id">
                     <td>{{ intent.id }}</td>
                     <td>{{ intent.intent_name }}</td>
                     <td v-if="intent.department">
@@ -70,7 +112,7 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
@@ -95,6 +137,42 @@ export default {
 
         }
         = useDataFetcher();
+
+        const searchTerm = ref('');
+        const selectedIntentId = ref(''); // Bound to the Intent dropdown
+        const selectedDepartmentId = ref(''); // Bound to the Department dropdown
+
+        // 🟢 NEW: Chained filtering logic in a single computed property
+        const filteredIntents = computed(() => {
+            let data = intents.value;
+
+            // A. Apply Text Search (Question, Answer, ID)
+            if (searchTerm.value) {
+                const searchLower = searchTerm.value.toLowerCase();
+                data = data.filter(intent =>
+                    intent.intent_name?.toLowerCase().includes(searchLower) ||
+                    intent.id?.toString().includes(searchTerm.value)
+                );
+            }
+
+            // B. Apply Intent Filter
+            // Filter only if a specific Intent ID (number or null for unassigned) is selected
+            if (selectedIntentId.value !== '') {
+                 // Intent IDs are usually numbers, unless 'null' is passed for unassigned
+                const intentFilterValue = selectedIntentId.value === null ? null : parseInt(selectedIntentId.value);
+                data = data.filter(intent => intent.id === intentFilterValue);
+            }
+
+            // C. Apply Department Filter
+            // Filter only if a specific Department ID (number or null for unassigned) is selected
+            if (selectedDepartmentId.value !== '') {
+                // Department IDs are usually numbers, unless 'null' is passed for unassigned
+                const deptFilterValue = selectedDepartmentId.value === null ? null : parseInt(selectedDepartmentId.value);
+                data = data.filter(intent => intent.department_id === deptFilterValue);
+            }
+
+            return data;
+        });
 
         // --- Fetching Data on Mount ---
         const fetchAllData = async () => {
@@ -333,6 +411,10 @@ export default {
             triggerImport,
             importIntents,
             importFile,
+            filteredIntents,
+            searchTerm,
+            selectedIntentId,
+            selectedDepartmentId,
         };
     }
 };
