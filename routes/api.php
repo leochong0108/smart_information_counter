@@ -64,6 +64,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/top10ForChat', [statisticController::class, 'selectTop10ForChat']);
     Route::get('/totalIntents', [statisticController::class, 'totalIntents']);
     Route::get('/getDashboardMetrics', [statisticController::class, 'getDashboardMetrics']);
+    Route::get('/department-trend', [statisticController::class, 'departmentTrend']);
 });
 
 

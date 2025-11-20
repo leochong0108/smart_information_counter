@@ -71,7 +71,7 @@
                         <div class="btn-group w-100">
                             <button type="button" class="btn btn-sm btn-success dropdown-toggle w-100" data-bs-toggle="dropdown" aria-expanded="false" :disabled="loading">
                                 <span v-if="loading" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                                <i v-else class="bi bi-download me-1"></i> Export
+                                <i v-else class="bi bi-download me-1"></i> Export Excel/PDF
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end">
                                 <li>
@@ -162,34 +162,58 @@
         <div class="col-12 col-md-6 mt-4">
             <div class="card p-3 h-100">
                 <div class="d-flex align-items-center justify-content-between mb-1">
-                    <h3>Top 10 List</h3>
+                    <h3>Department Trends</h3>
                 </div>
-                 <div v-if="top10FAQs.Faq?.length" >
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th scope="col">Question</th>
-                                <th scope="col">Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="TOP in top10FAQs.Faq" :key="TOP.id">
-                                <td>{{ TOP.question }}</td>
-                                <td>{{ TOP.total }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <div style="height: auto; position: relative;">
+                    <LineChart
+                        v-if="trendData.datasets.length"
+                        :chart-data="trendData"
+                        :options="lineChartOptions"
+                    />
+                    <p v-else class="text-center mt-5">No trend data available.</p>
                 </div>
             </div>
         </div>
     </div>
+    <div class="row mt-4 mb-5"> <div class="col-12">
+
+        <div v-if="!aiSummary && !analyzing" class="text-center">
+            <button @click="generateAnalysis" class="btn btn-outline-primary btn-lg">
+                <i class="bi bi-stars"></i> Generate AI Performance Analysis
+            </button>
+        </div>
+
+        <div v-else-if="analyzing" class="text-center p-4">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2 text-muted">Gemini is analyzing your data...</p>
+        </div>
+
+        <div v-else class="card border-info shadow-sm">
+            <div class="card-header bg-white text-info border-bottom-0 d-flex justify-content-between align-items-center">
+                <span class="fw-bold"><i class="bi bi-robot me-2"></i>AI Executive Summary</span>
+                <button @click="generateAnalysis" class="btn btn-sm btn-link text-muted" title="Regenerate">
+                    <i class="bi bi-arrow-clockwise"></i>
+                </button>
+            </div>
+            <div class="card-body bg-light-subtle">
+                <p class="card-text" style="white-space: pre-line; font-family: sans-serif;">
+                    {{ aiSummary }}
+                </p>
+                <div class="text-end">
+                     <small class="text-muted" style="font-size: 0.7rem;">Generated on {{ new Date().toLocaleString() }}</small>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
 </div>
 </template>
 
 <script>
 import { ref, onMounted, watch, computed } from 'vue';
 import axios from 'axios';
-import { BarChart, PieChart } from 'vue-chart-3';
+import { BarChart, PieChart, LineChart } from 'vue-chart-3';
 import { Chart, registerables } from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 import { useDataFetcher } from '../../services/dataFetcher';
@@ -203,6 +227,7 @@ export default {
     components: {
         BarChart,
         PieChart,
+        LineChart
     },
     setup() {
         const {
@@ -218,9 +243,61 @@ export default {
         const token = localStorage.getItem('sanctum_token');
         const customStartDate = ref(null);
         const customEndDate = ref(null);
+        const trendData = ref({ labels: [], datasets: [] });
+        const trendLoading = ref(false);
 
         const getRandomColor = () => {
             return '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+        };
+
+        const lineChartOptions = ref({
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index', // 鼠标悬停时显示同一时刻所有部门的数据
+                intersect: false,
+            },
+            plugins: {
+                legend: { position: 'top' }, // 显示部门图例
+                title: { display: true, text: 'Department Query Trend' }
+            },
+            scales: {
+                y: { beginAtZero: true, ticks: { precision: 0 } }
+            }
+        });
+
+        // 4. 获取 Trend 数据的函数
+        const getDepartmentTrend = async (filter) => {
+            if (!token) return;
+            trendLoading.value = true;
+            try {
+                let apiUrl = `/api/department-trend?filter=${filter}`;
+                if (filter === 'custom-range' && customStartDate.value && customEndDate.value) {
+                    apiUrl += `&startDate=${customStartDate.value}&endDate=${customEndDate.value}`;
+                }
+
+                const response = await axios.get(apiUrl, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+
+                // 为每个 Dataset 添加颜色 (因为后端没传颜色)
+                const datasetsWithColor = response.data.datasets.map(ds => ({
+                    ...ds,
+                    borderColor: getRandomColor(), // 使用你现有的随机颜色函数
+                    backgroundColor: 'transparent', // 折线图通常背景透明
+                    tension: 0.3 // 让线条稍微圆滑一点
+                }));
+
+                trendData.value = {
+                    labels: response.data.labels,
+                    datasets: datasetsWithColor
+                };
+
+            } catch (err) {
+                console.error("Trend Error", err);
+            } finally {
+                trendLoading.value = false;
+            }
         };
 
         // --- Charts Logic ---
@@ -323,12 +400,14 @@ export default {
             }
         };
 
+// 6. 修改 Custom Range 按钮逻辑
         const fetchCustomRangeData = () => {
             if (customStartDate.value && customEndDate.value) {
-                selectedFilter.value = 'custom-range'; // Force select dropdown
+                selectedFilter.value = 'custom-range';
                 getTop10FAQs('custom-range');
+                getDepartmentTrend('custom-range'); // <--- 新增调用
             } else {
-                alert('Please select both a start and end date.');
+                alert('Please select dates');
             }
         };
 
@@ -457,7 +536,9 @@ export default {
 
         watch(selectedFilter, (newFilter) => {
             if (newFilter !== 'custom-range') {
+                // 同时调用两个 API
                 getTop10FAQs(newFilter);
+                getDepartmentTrend(newFilter); // <--- 新增调用
             }
         }, { immediate: true });
 
@@ -479,7 +560,10 @@ export default {
             departmentChartData,
             fetchCustomRangeData,
             exportToExcel, // 返回给 Template
-            exportToPDF    // 返回给 Template
+            exportToPDF,   // 返回给 Template
+            trendData,
+            lineChartOptions,
+            getDepartmentTrend,
         };
     }
 }
