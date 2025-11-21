@@ -81,8 +81,11 @@
                                 </li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li>
-                                    <a class="dropdown-item" href="#" @click.prevent="exportToPDF">
-                                        <i class="bi bi-file-earmark-pdf text-danger me-2"></i>PDF (Report)
+                                    <a class="dropdown-item" href="#" @click.prevent="exportToPDF" :disabled="loading">
+                                        <span v-if="generatingAnalysis" class="spinner-grow spinner-grow-sm text-light" role="status"></span>
+                                        <span v-if="generatingAnalysis"> AI Analyzing...</span>
+                                        <span v-else-if="loading"> Generating PDF...</span>
+                                        <span v-else><i class="bi bi-file-earmark-pdf"></i> Export PDF with AI</span>
                                     </a>
                                 </li>
                             </ul>
@@ -245,9 +248,40 @@ export default {
         const customEndDate = ref(null);
         const trendData = ref({ labels: [], datasets: [] });
         const trendLoading = ref(false);
+        const aiSummary = ref(""); // 新增：存储 AI 总结
+        const generatingAnalysis = ref(false); // 新增：加载状态
+        const analyzing = ref(false);
 
         const getRandomColor = () => {
             return '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+        };
+
+        // 1. 抽取一个辅助函数：准备发给 AI 的数据
+        const prepareStatsForAI = () => {
+            // 从现有的 top10FAQs 和 totalQuestions 中提取关键信息
+            // 避免发送太多无用数据节省 Token
+            return {
+                period: selectedFilter.value,
+                metrics: totalQuestions.value, // total, success, fail
+                top_intent: top10FAQs.value.Intent?.[0] || 'N/A', // 第一名的意图
+                top_department: top10FAQs.value.Department?.[0] || 'N/A', // 第一名的部门
+                top_faq: top10FAQs.value.Faq?.[0]?.question || 'N/A' // 第一名的问题
+            };
+        };
+
+        const generateAnalysis = async () => {
+            analyzing.value = true;
+            try {
+                const statsPayload = prepareStatsForAI(); // 复用之前的逻辑
+                const res = await axios.post('/api/generate-summary', { stats: statsPayload }, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                aiSummary.value = res.data.summary;
+            } catch (e) {
+                alert("Analysis failed.");
+            } finally {
+                analyzing.value = false;
+            }
         };
 
         const lineChartOptions = ref({
@@ -477,6 +511,15 @@ export default {
             loading.value = true;
             exporting.value = true; // 临时状态，可以用来在截图时隐藏一些按钮等
 
+            if (!aiSummary.value) {
+                const confirmGen = confirm("Do you want to include AI analysis in the PDF?");
+                if (confirmGen) {
+                    await generateAnalysis();
+                    // 等待 DOM 渲染
+                    await new Promise(r => setTimeout(r, 500));
+                }
+            }
+
             // 给 Vue 一点时间渲染任何可能因 exporting 状态改变的 UI
             await new Promise(resolve => setTimeout(resolve, 100));
 
@@ -564,6 +607,11 @@ export default {
             trendData,
             lineChartOptions,
             getDepartmentTrend,
+            aiSummary,
+            generatingAnalysis,
+            prepareStatsForAI,
+            generateAnalysis,
+            analyzing
         };
     }
 }

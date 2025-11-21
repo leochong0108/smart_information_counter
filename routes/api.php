@@ -32,6 +32,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('user', [aiChatBotController::class, 'userInfo']);
     Route::post('logout', [aiChatBotController::class, 'logOut']);
+    Route::post('/generate-summary', [aiChatBotController::class, 'generateDashboardSummary']);
 
     Route::get('/allIntents', [intentController::class, 'index']);
     Route::get('/findIntents/{id}', [intentController::class, 'show']);
@@ -65,6 +66,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/totalIntents', [statisticController::class, 'totalIntents']);
     Route::get('/getDashboardMetrics', [statisticController::class, 'getDashboardMetrics']);
     Route::get('/department-trend', [statisticController::class, 'departmentTrend']);
+
 });
 
 

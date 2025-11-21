@@ -283,4 +283,35 @@ class aiChatBotController extends Controller
         return response()->json(['reply' => is_string($response) ? $response : "Sorry, I don't have that information yet."]);
     }
 
+    public function generateDashboardSummary(Request $request)
+    {
+        // 1. 接收前端传来的统计数据 (JSON)
+        $stats = $request->input('stats');
+        // $stats 结构大概是: { total: 100, top_intent: 'Wifi Issue', top_dept: 'IT', ... }
+
+        // 2. 构建 Prompt
+        // 注意：把数据转成字符串塞进 Prompt
+        $dataString = json_encode($stats);
+
+        $prompt = "
+        You are a data analyst for a university helpdesk.
+        Here is the dashboard data for the selected period:
+        {$dataString}
+
+        Please write a professional, concise summary (max 100 words) for a management report.
+        Structure:
+        1. Highlight the total volume and success rate.
+        2. Point out the most critical issue (Top Intent).
+        3. Give 1 brief recommendation based on the data.
+
+        Output pure text, no markdown formatting.
+        ";
+
+        // 3. 调用 Gemini (复用你现有的 Service)
+        $gemini = new \App\Services\GeminiService();
+        $analysis = $gemini->generateText($prompt); // 假设你有这个简单生成文本的方法
+
+        return response()->json(['summary' => $analysis]);
+    }
+
 }
