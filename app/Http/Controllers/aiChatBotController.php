@@ -91,23 +91,20 @@ class aiChatBotController extends Controller
 
 // ... (Helper functions getFaqAnswer, getDepartmentInfo, getIntentInfo remain unchanged)
 
-    public function chat(Request $request)
+public function chat(Request $request)
     {
         $userMessage = $request->input('message');
-        $gemini = new \App\Services\GeminiService(); // Assuming this is your service class
+        $gemini = new \App\Services\GeminiService();
 
-        // Functions array remains unchanged
         $functions = [
+            // ... (你的 functions 定义保持不变，为了节省空间我省略了) ...
             [
                 "name" => "getFaqAnswer",
                 "description" => "Search for the most relevant FAQ from the database and return its answer.",
                 "parameters" => [
                     "type" => "object",
                     "properties" => [
-                        "question" => [
-                            "type" => "string",
-                            "description" => "User's question about the university."
-                        ]
+                        "question" => ["type" => "string", "description" => "User's question about the university."]
                     ],
                     "required" => ["question"]
                 ]
@@ -118,10 +115,7 @@ class aiChatBotController extends Controller
                 "parameters" => [
                     "type" => "object",
                     "properties" => [
-                        "name" => [
-                            "type" => "string",
-                            "description" => "The name of the department (e.g., IT, Business, Engineering)."
-                        ]
+                        "name" => ["type" => "string", "description" => "The name of the department."]
                     ],
                     "required" => ["name"]
                 ]
@@ -147,140 +141,147 @@ class aiChatBotController extends Controller
             $functionName = $functionCall['name'] ?? null;
             $args = $functionCall['args'] ?? $functionCall['arguments'] ?? [];
 
-            $factualAnswer = null; // Initialize a variable to hold the raw data
+            $factualAnswer = null;
             $departmentFailureMessage = null;
 
             switch ($functionName) {
                 case 'getFaqAnswer':
-                        $question = $args['question'] ?? $userMessage;
-                        // The return value is now an array or a string failure message
-                        $functionResult = $this->getFaqAnswer($question);
+                    $question = $args['question'] ?? $userMessage;
+                    $functionResult = $this->getFaqAnswer($question);
+                    $logPayload = [];
 
-                        $factualAnswer = null;
-                        $logPayload = []; // NEW: Variable to hold the log data
-
-                        if (is_array($functionResult)) {
-                            $factualAnswer = $functionResult['factual_answer'];
-                            $logPayload = $functionResult['log_data']; // Store the IDs/raw answer
-                        } else {
-                            // It's a failure string message
-                            $factualAnswer = $functionResult;
-                        }
-                        break;
+                    if (is_array($functionResult)) {
+                        $factualAnswer = $functionResult['factual_answer'];
+                        $logPayload = $functionResult['log_data'];
+                    } else {
+                        $factualAnswer = $functionResult;
+                    }
+                    break;
 
                 case 'getDepartmentInfo':
                     $name = $args['name'] ?? $userMessage;
                     $factualAnswer = $this->getDepartmentInfo($name);
-                    // prepare the specific failure message so later checks don't reference undefined $name
                     $departmentFailureMessage = "I couldn't find department information for '{$name}'.";
                     break;
             }
 
-            // 🧠 Step 2 (NEW): If we successfully retrieved factual data, send it back to Gemini for rephrasing
             $failureMessage = "I couldn't find a matching FAQ for that question.";
 
-            // **CHECK:** Did a function execute and return valid, non-failure data?
+            // ✅ 情况 A: 成功获取到信息
             if ($factualAnswer && $factualAnswer !== $failureMessage && $factualAnswer !== $departmentFailureMessage) {
-
-                // --- THIS IS WHERE THE NATURAL LANGUAGE INTEGRATION HAPPENS (THE KEY CHANGE) ---
                 \Log::info($factualAnswer);
                 $integrationPrompt = "The user asked: '{$userMessage}'.
-
                 I have retrieved the following pieces of information from the knowledge base, separated by '---':
-                {$factualAnswer} // This now contains the combined context string
-
+                {$factualAnswer}
                 You are a polite chatbot for Southern University College.
-                Please synthesize a single, natural, and comprehensive response by using ALL relevant facts from the retrieved information.
-                If any piece of information is clearly irrelevant to the user's question, ignore it.
-                Do not add or invent any new information.
+                Please synthesize a single, natural, and comprehensive response by using ALL relevant facts.
                 Your final answer should be ONLY the natural language response.";
 
-                            // Assuming a method for simple text generation without tools:
-                            // **NOTE:** You must implement a simple $gemini->generateText($prompt) method
-                            // that doesn't use tools, just returns the text response.
-                    $naturalReply = $gemini->generateText($integrationPrompt);
+                $naturalReply = $gemini->generateText($integrationPrompt);
 
                 if (!empty($logPayload)) {
-                    // You can choose to log one entry per retrieved FAQ or combine them.
-                    // To log the FINAL $naturalReply, we'll log one entry for the main/highest-scoring FAQ.
+                    $mainMatch = $logPayload[0];
 
-                    $mainMatch = $logPayload[0]; // Assuming the first item is the best match
-                    \Log::info($mainMatch);
-
-                    QuestionLog::create([
-                        'question_text' => $question,
-                        'answer_text' => $naturalReply, // Log the final, natural answer
+                    // 创建成功日志
+                    $log = QuestionLog::create([
+                        'question_text' => $userMessage,
+                        'answer_text' => $naturalReply,
                         'faq_id' => $mainMatch['faq_id'],
                         'intent_id' => $mainMatch['intent_id'],
                         'department_id' => $mainMatch['department_id'],
                         'status' => true,
                         'checked' => true,
-                        // Optionally, log the other FAQ IDs used in the context as well
-                        // 'context_faq_ids' => json_encode(array_column($logPayload, 'faq_id')),
                     ]);
 
+                    // 🔥 修复点 1: 返回 log_id 和 status
+                    return response()->json([
+                        'reply' => $naturalReply,
+                        'log_id' => $log->id,
+                        'status' => true
+                    ]);
                 }
 
-                return response()->json(['reply' => $naturalReply]);
-                // --------------------------------------------------------------------------
+                // 极少数情况没logPayload，但也算成功
+                return response()->json(['reply' => $naturalReply, 'status' => true]);
             }
 
-            // If the function was called but failed (e.g., department not found),
-            // return the failure message directly.
+            // ❌ 情况 B: Function 调用了但没找到结果 (失败)
             if ($factualAnswer) {
-
-                QuestionLog::create([
-                    'question_text' => $question,
-                    'status' => false,
+                $log = QuestionLog::create([
+                    'question_text' => $userMessage,
+                    'status' => false, // 标记失败
                     'checked' => false,
                 ]);
 
-                return response()->json(['reply' => $factualAnswer]);
+                // 🔥 修复点 2: 返回 log_id 和 status=false
+                return response()->json([
+                    'reply' => $factualAnswer,
+                    'log_id' => $log->id,
+                    'status' => false
+                ]);
             }
         }
 
-        // 🧠 Step 3: If no function call, still try fuzzy match (Fallback Logic)
+        // 🧠 Step 3: Fallback Logic (Fuzzy Match)
         $fallbackAnswer = $this->getFaqAnswer($userMessage);
 
+        // ✅ 情况 C: Fuzzy Match 成功
         if ($fallbackAnswer !== "I couldn't find a matching FAQ for that question.") {
-            // If the fallback works, we still use Gemini to make it sound natural!
+            // 这里 $fallbackAnswer 可能是数组(成功)或字符串(失败)，getFaqAnswer返回逻辑略复杂
+            // 但上面的 if 既然排除了失败字符串，说明是数组结构
+            // 注意：getFaqAnswer 返回的是 ['factual_answer' => ..., 'log_data' => ...]
 
-            // --- NEW REPHRASING FOR FALLBACK ---
+            // 重新提取逻辑以防万一
+            $realFallbackText = is_array($fallbackAnswer) ? $fallbackAnswer['factual_answer'] : $fallbackAnswer;
+            $logPayload = is_array($fallbackAnswer) ? $fallbackAnswer['log_data'] : [];
+
             $integrationPrompt = "The user asked: '{$userMessage}'.
-            The knowledge base provided the following information: '{$fallbackAnswer}'.
-            You are a polite chatbot for Southern University College.
-            Please rephrase and integrate this information into a single, natural, and conversational response.
-            Do not add or invent any new information beyond the facts provided, always greeting before answer like Hi,then asnwer.
-            Your final answer should be ONLY the natural language response.";
+            The knowledge base provided: '{$realFallbackText}'.
+            Please rephrase into a natural response.";
 
             $naturalReply = $gemini->generateText($integrationPrompt);
 
             if (!empty($logPayload)) {
-                    // You can choose to log one entry per retrieved FAQ or combine them.
-                    // To log the FINAL $naturalReply, we'll log one entry for the main/highest-scoring FAQ.
-
-                $mainMatch = $logPayload[0]; // Assuming the first item is the best match
-
-                QuestionLog::create([
-                    'question_text' => $question,
-                    'answer_text' => $naturalReply, // Log the final, natural answer
+                $mainMatch = $logPayload[0];
+                $log = QuestionLog::create([
+                    'question_text' => $userMessage,
+                    'answer_text' => $naturalReply,
                     'faq_id' => $mainMatch['faq_id'],
                     'intent_id' => $mainMatch['intent_id'],
                     'department_id' => $mainMatch['department_id'],
                     'status' => true,
                     'checked' => true,
-                        // Optionally, log the other FAQ IDs used in the context as well
-                        // 'context_faq_ids' => json_encode(array_column($logPayload, 'faq_id')),
                 ]);
 
+                // 🔥 修复点 3: 返回完整数据
+                return response()->json([
+                    'reply' => $naturalReply,
+                    'log_id' => $log->id,
+                    'status' => true
+                ]);
             }
 
-
-            return response()->json(['reply' => $naturalReply]);
+            return response()->json(['reply' => $naturalReply, 'status' => true]);
         }
 
-        // 🗣️ Step 4: Otherwise, return Gemini's direct reply or final error
-        return response()->json(['reply' => is_string($response) ? $response : "Sorry, I don't have that information yet."]);
+        // ❌❌ 情况 D: 彻底失败 (Step 4)
+        $finalReply = is_string($response) ? $response : "Sorry, I don't have that information yet.";
+
+        // 你之前的代码在这里没有创建 Log，导致前端没 ID 可以请求帮助
+        // 🔥 修复点 4: 必须创建失败日志
+        $log = QuestionLog::create([
+            'question_text' => $userMessage,
+            'answer_text' => $finalReply,
+            'status' => false, // 标记失败
+            'checked' => false
+        ]);
+
+        // 🔥 修复点 5: 返回 log_id 和 status=false
+        return response()->json([
+            'reply' => $finalReply,
+            'log_id' => $log->id,
+            'status' => false
+        ]);
     }
 
     public function generateDashboardSummary(Request $request)
@@ -312,6 +313,28 @@ class aiChatBotController extends Controller
         $analysis = $gemini->generateText($prompt); // 假设你有这个简单生成文本的方法
 
         return response()->json(['summary' => $analysis]);
+    }
+
+    public function requestHumanHelp(Request $request)
+    {
+        $logId = $request->input('log_id');
+        // 标记为请求协助
+        QuestionLog::where('id', $logId)->update(['help_requested' => true]);
+        return response()->json(['status' => 'success']);
+    }
+
+    public function checkAdminReply(Request $request)
+    {
+        $logId = $request->input('log_id');
+        $log = QuestionLog::where('id', $logId)->first();
+
+        if ($log && $log->admin_reply) {
+            return response()->json([
+                'replied' => true,
+                'reply' => $log->admin_reply
+            ]);
+        }
+        return response()->json(['replied' => false]);
     }
 
 }

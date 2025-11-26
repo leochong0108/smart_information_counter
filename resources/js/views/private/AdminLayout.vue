@@ -43,6 +43,14 @@
 
             </ul>
             <form class="d-flex" >
+                <button class="btn me-2 position-relative"
+                    :class="liveRequests.length > 0 ? 'btn-warning' : 'btn-outline-secondary'"
+                    @click="openHelpModal">
+                    <i class="bi bi-headset"></i> Live Help
+                    <span v-if="liveRequests.length > 0" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                        {{ liveRequests.length }}
+                    </span>
+                </button>
                 <button class="btn btn-outline-success me-2" type="button" @click="viewFailLog">
                     Failed Logs <span class="badge bg-danger">{{ failsCount }}</span>
                 </button>
@@ -54,6 +62,39 @@
         </div>
     </nav>
 
+    <div v-if="showHelpModal" class="modal fade show d-block" style="background: rgba(0,0,0,0.5)">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title">Live Assistance Requests</h5>
+                    <button type="button" class="btn-close" @click="showHelpModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div v-if="liveRequests.length === 0" class="text-center p-4">
+                        <p class="text-muted">No pending requests at the moment.</p>
+                    </div>
+                    <div v-else>
+                        <div v-for="req in liveRequests" :key="req.id" class="card mb-3">
+                            <div class="card-body">
+                                <h6 class="card-title text-primary">User Question:</h6>
+                                <p class="card-text fs-5">{{ req.question_text }}</p>
+                                <hr>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" v-model="req.replyDraft" placeholder="Type reply (e.g., 'Please wait, I am coming out')">
+                                    <button class="btn btn-success" @click="sendReply(req)">Send Reply</button>
+                                </div>
+                                <div class="mt-2">
+                                    <button class="btn btn-sm btn-outline-secondary me-1" @click="req.replyDraft = 'Please wait, I am coming to the kiosk now.'">Quick: Wait</button>
+                                    <button class="btn btn-sm btn-outline-secondary" @click="req.replyDraft = 'Please go to AFO for assistance.'">Quick: AFO</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <main class="container-fluid">
       <RouterView />
     </main>
@@ -61,7 +102,7 @@
 </template>
 
 <script>
-import { ref , onMounted} from 'vue';
+import { ref , onMounted, onUnmounted} from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 import { useFailedLogStore } from '../../services/useFailsLog';
@@ -74,20 +115,76 @@ export default {
         //const fails = ref([]);
         //const error = ref(null);
         const token = localStorage.getItem('sanctum_token');
+        const liveRequests = ref([]);
+        const showHelpModal = ref(false);
+        let adminPollTimer = null;
 
 
-/*         const getFail = async() => {
-            try {
-                const response = await axios.get('/api/selectFailedLogs', {
-                    headers: { Authorization: `Bearer ${token}`  }
-                });
-                fails.value = response.data;
-                console.log(fails.value);
-            }
-            catch (err) {
-                error.value = err.response?.data?.message || 'Error fetching fails';
-            }
+    const startAdminPolling = () => {
+            if (!token) return;
+
+            adminPollTimer = setInterval(async () => {
+                try {
+                    const res = await axios.get('/api/admin/support-requests', {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+
+                    const newData = res.data;
+
+                    // 🔔 如果有新请求，播放声音
+                    if (newData.length > liveRequests.value.length) {
+                         // playSound(); // 如果你启用了声音
+                    }
+
+                    // 🔥 智能合并逻辑：
+                    // 我们不能直接覆盖 liveRequests，否则正在输入的 replyDraft 会丢失。
+                    // 我们需要保留现有的 draft，只更新列表。
+
+                    const updatedList = newData.map(newItem => {
+                        // 检查旧列表中是否已经有这个 item
+                        const existingItem = liveRequests.value.find(oldItem => oldItem.id === newItem.id);
+
+                        // 如果有，保留旧的 replyDraft；如果没有，初始化为空
+                        return {
+                            ...newItem,
+                            replyDraft: existingItem ? existingItem.replyDraft : ''
+                        };
+                    });
+
+                    liveRequests.value = updatedList;
+
+                } catch (e) {
+                    console.error("Admin poll error");
+                }
+            }, 5000);
+        };
+
+/*         const playSound = () => {
+            audio.play().catch(e => console.log("Audio play failed (interaction needed)", e));
         }; */
+
+        const openHelpModal = () => {
+            showHelpModal.value = true;
+        };
+
+        const sendReply = async (req) => {
+            if (!req.replyDraft) return alert("Please type a reply");
+
+            try {
+                await axios.post('/api/admin/reply-support', {
+                    log_id: req.id,
+                    reply: req.replyDraft
+                }, {
+                     headers: { Authorization: `Bearer ${token}` }
+                });
+
+                // 发送成功后，从列表移除该请求
+                liveRequests.value = liveRequests.value.filter(r => r.id !== req.id);
+                alert("Reply sent!");
+            } catch (e) {
+                alert("Failed to send reply");
+            }
+        };
 
         const viewFailLog = async() => {
 
@@ -111,6 +208,11 @@ export default {
 
         onMounted(() => {
             refreshFailedLogs();
+            startAdminPolling();
+        });
+
+        onUnmounted(() => {
+            if (adminPollTimer) clearInterval(adminPollTimer);
         });
 
         return {
@@ -118,7 +220,11 @@ export default {
             refreshFailedLogs,
             viewFailLog,
             isLoggedIn,
-            handleLogout
+            handleLogout,
+            liveRequests,
+            showHelpModal,
+            openHelpModal,
+            sendReply,
         };
 
     }

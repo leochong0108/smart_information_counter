@@ -107,4 +107,33 @@ class questionLogController extends Controller
         // Placeholder for Excel export functionality
         return response()->json(['message' => 'Excel export not implemented yet'], 501);
     }
+
+        // 获取所有 "已请求" 但 "未回复" 的记录
+    public function getPendingSupportRequests()
+    {
+        $requests = QuestionLog::where('help_requested', true)
+            ->whereNull('admin_reply') // 只看还没回复的
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json($requests);
+    }
+
+    // 管理员提交回复
+    public function replyToSupportRequest(Request $request)
+    {
+        $logId = $request->input('log_id');
+        $replyText = $request->input('reply');
+
+        $log = QuestionLog::find($logId);
+        if ($log) {
+            $log->update([
+                'admin_reply' => $replyText,
+                'replied_at' => now()
+                // 注意：我们不改 status，保持它是 false，因为它确实是 AI 回答失败的记录
+            ]);
+        }
+
+        return response()->json(['status' => 'success']);
+    }
 }

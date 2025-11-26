@@ -17,7 +17,18 @@
         <div v-else class="chat-container">
             <div v-for="(m, idx) in messages" :key="idx" class="message d-flex" :class="m.from === 'user' ? 'justify-content-end' : 'justify-content-start'">
                 <div class="bubble p-2 m-1" :class="m.from === 'user' ? 'user-bubble' : 'ai-bubble'" v-html="m.text"></div>
+
+                <div v-if="m.from === 'ai' && m.isFailure && !m.waitingForHuman && !m.replied" class="ms-2">
+                    <button @click="requestHelp(idx, m.logId)" class="btn btn-warning btn-sm mt-1">
+                        <i class="bi bi-person-raised-hand"></i> Request Human Help
+                    </button>
+                </div>
+
+                <div v-if="m.waitingForHuman" class="ms-2 text-muted small">
+                    <span class="spinner-grow spinner-grow-sm text-warning" role="status"></span> Waiting for staff...
+                </div>
             </div>
+
             <div v-if="isLoading" class="d-flex justify-content-start message">
                 <div class="bubble p-2 m-1 ai-bubble loading-indicator">
                     <span class="dot">.</span><span class="dot">.</span><span class="dot">.</span>
@@ -86,201 +97,273 @@ const router = useRouter();
 const FAQs = ref([]);
 const token = localStorage.getItem('sanctum_token');
 const error = ref(null);
-
-
+const pollingInterval = ref(null);
 // --- Voice Input State and Variables ---
 const isListening = ref(false);
 let recognition = null;
-// ---------------------------------------
-
 // --- New Confirmation State ---
 const isEndChatConfirmation = ref(false);
-// ------------------------------
-
 let idleTimer;
 let modalCountdownTimer;
 
-// Computed property to display only the top 3 FAQs after chat starts
-const visibleFAQs = computed(() => {
-    // Return the first 3 FAQs from the full list
-    return FAQs.value.slice(0, 3);
-});
-
-
-const getTop10FAQs = async () => {
-    if (token) {
+    // 1. 新增：请求人工协助
+    const requestHelp = async (index, logId) => {
         try {
-            // Updated API endpoint is assumed to be correct
-            const response = await axios.get('/api/top10ForChat', {
-                headers: { Authorization: `Bearer ${token}` }
+            // 调用 API
+            await axios.post('/api/request-help', { log_id: logId });
+
+            // 更新 UI：标记这条消息为等待中
+            messages.value[index].waitingForHuman = true;
+
+            // 添加一条系统提示
+            messages.value.push({
+                from: 'ai',
+                text: '<i>🔔 Request sent! Please wait for a staff member to reply on this screen.</i>'
             });
-            FAQs.value = response.data;
-            console.log(FAQs.value);
-        } catch (err) {
-            error.value = err.response?.data?.message || 'Error fetching top 10 FAQs';
+
+            // 开始轮询
+            startPolling(logId);
+
+        } catch (e) {
+            alert("Failed to request help.");
         }
-    }
-};
-
-const resetIdleTimer = () => {
-    // Only reset if we are not currently confirming the end chat action
-    if (isEndChatConfirmation.value) return;
-
-    clearTimeout(idleTimer);
-    clearTimeout(modalCountdownTimer);
-    showModal.value = false;
-    idleTimer = setTimeout(showModalAndCountdown, 90000); // set idle time here (90 seconds)
-};
-
-const showModalAndCountdown = () => {
-    // Ensure we aren't showing the confirmation modal first
-    if (isEndChatConfirmation.value) return;
-
-    showModal.value = true;
-    countdown.value = 10;
-    modalCountdownTimer = setInterval(() => {
-        countdown.value--;
-        if (countdown.value <= 0) {
-            clearInterval(modalCountdownTimer);
-            endChatImmediate(); // Use immediate end for consistency
-        }
-    }, 1000);
-};
-
-const continueChat = () => {
-    showModal.value = false;
-    clearInterval(modalCountdownTimer);
-    isEndChatConfirmation.value = false; // Reset flag
-    resetIdleTimer();
-};
-
-const endChatImmediate = () => {
-    showModal.value = false;
-    clearInterval(modalCountdownTimer);
-    isEndChatConfirmation.value = false; // Reset flag
-    messages.value = [];
-    router.push('/');
-};
-
-const sendMessage = async () => {
-    resetIdleTimer();
-    if (!input.value.trim()) return;
-
-    messages.value.push({ from: "user", text: input.value });
-    const userMessage = input.value;
-    input.value = "";
-    isLoading.value = true;
-
-    try {
-        // Assuming sendMessageToAI is a function that calls your Laravel/Gemini endpoint
-        const reply = await sendMessageToAI(userMessage);
-        messages.value.push({ from: "ai", text: reply });
-    } catch (error) {
-        console.error("Failed to get AI reply:", error);
-        messages.value.push({ from: "ai", text: "Sorry, I am unable to respond at this time." });
-    } finally {
-        isLoading.value = false;
-        // Scroll to the bottom of the chat after new message
-        setTimeout(() => {
-            const chatContainer = document.querySelector('.chat-container');
-            if (chatContainer) {
-                chatContainer.scrollTop = chatContainer.scrollHeight;
-            }
-        }, 100);
-    }
-};
-
-const setInputAndSend = (question) => {
-    resetIdleTimer();
-    input.value = question;
-    // Call sendMessage() immediately after setting the input
-    sendMessage();
-};
-
-const endChat = () => {
-    // Show confirmation modal instead of immediate end
-    isEndChatConfirmation.value = true;
-    showModal.value = true;
-    // Stop any running idle countdown immediately
-    clearInterval(modalCountdownTimer);
-    clearTimeout(idleTimer);
-};
-
-// --- Voice Input Implementation (kept as-is for functionality) ---
-const setupSpeechRecognition = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-        console.warn("Speech Recognition not supported in this browser.");
-        return;
-    }
-
-    recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = 'en-US';
-
-    recognition.onstart = () => {
-        isListening.value = true;
-        console.log('Voice recognition started.');
     };
 
-    recognition.onresult = (event) => {
-        let finalTranscript = '';
-        let interimTranscript = '';
+    // 2. 新增：轮询逻辑
+    const startPolling = (logId) => {
+        if (pollingInterval.value) clearInterval(pollingInterval.value);
 
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-            const transcript = event.results[i][0].transcript;
-            if (event.results[i].isFinal) {
-                finalTranscript += transcript;
-            } else {
-                interimTranscript += transcript;
+        pollingInterval.value = setInterval(async () => {
+            try {
+                const res = await axios.post('/api/check-reply', { log_id: logId });
+
+                if (res.data.replied) {
+                    // 管理员回复了！
+                    clearInterval(pollingInterval.value); // 停止轮询
+
+                    // 🔥🔥🔥 新增关键代码开始 🔥🔥🔥
+                // 2. 找到发起请求的那条消息，并关闭等待状态
+                    const originalMessage = messages.value.find(m => m.logId === logId);
+                    if (originalMessage) {
+                        originalMessage.waitingForHuman = false; // 这会让 "Waiting for staff..." 消失
+                        originalMessage.replied = true;          // 这会确保 "Request Help" 按钮不再出现
+                    }
+
+                    messages.value.push({
+                        from: 'ai', // 或者 'admin' 如果你有这个样式
+                        text: `👨‍💼 <strong>Staff Reply:</strong> ${res.data.reply}`
+                    });
+
+                    // 滚动到底部
+                    setTimeout(() => {
+                        const chatContainer = document.querySelector('.chat-container');
+                        if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
+                    }, 100);
+                }
+            } catch (e) {
+                console.error("Polling error");
+            }
+        }, 3000); // 每 3 秒检查一次
+    };
+
+    // Computed property to display only the top 3 FAQs after chat starts
+    const visibleFAQs = computed(() => {
+        // Return the first 3 FAQs from the full list
+        return FAQs.value.slice(0, 3);
+    });
+
+
+    const getTop10FAQs = async () => {
+        if (token) {
+            try {
+                // Updated API endpoint is assumed to be correct
+                const response = await axios.get('/api/top10ForChat', {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                FAQs.value = response.data;
+                console.log(FAQs.value);
+            } catch (err) {
+                error.value = err.response?.data?.message || 'Error fetching top 10 FAQs';
             }
         }
-
-        input.value = finalTranscript + interimTranscript;
-
-        if (finalTranscript) {
-            recognition.stop();
-        }
     };
 
-    recognition.onerror = (event) => {
-        console.error('Speech recognition error:', event.error);
-        isListening.value = false;
+    const resetIdleTimer = () => {
+        // Only reset if we are not currently confirming the end chat action
+        if (isEndChatConfirmation.value) return;
+
+        clearTimeout(idleTimer);
+        clearTimeout(modalCountdownTimer);
+        showModal.value = false;
+        idleTimer = setTimeout(showModalAndCountdown, 90000); // set idle time here (90 seconds)
     };
 
-    recognition.onend = () => {
-        isListening.value = false;
-        console.log('Voice recognition ended.');
+    const showModalAndCountdown = () => {
+        // Ensure we aren't showing the confirmation modal first
+        if (isEndChatConfirmation.value) return;
+
+        showModal.value = true;
+        countdown.value = 10;
+        modalCountdownTimer = setInterval(() => {
+            countdown.value--;
+            if (countdown.value <= 0) {
+                clearInterval(modalCountdownTimer);
+                endChatImmediate(); // Use immediate end for consistency
+            }
+        }, 1000);
     };
-};
 
-const startVoiceInput = () => {
-    if (!recognition) return;
+    const continueChat = () => {
+        showModal.value = false;
+        clearInterval(modalCountdownTimer);
+        isEndChatConfirmation.value = false; // Reset flag
+        resetIdleTimer();
+    };
 
-    if (isListening.value) {
-        recognition.stop();
-    } else {
+    const endChatImmediate = () => {
+        if (pollingInterval.value) clearInterval(pollingInterval.value);
+        showModal.value = false;
+        clearInterval(modalCountdownTimer);
+        isEndChatConfirmation.value = false; // Reset flag
+        messages.value = [];
+        router.push('/');
+    };
+
+    const sendMessage = async () => {
+        resetIdleTimer();
+        if (!input.value.trim()) return;
+
+        messages.value.push({ from: "user", text: input.value });
+        const userMessage = input.value;
         input.value = "";
-        recognition.start();
-    }
-};
+        isLoading.value = true;
+
+        try {
+            // 🔥 修改: 直接使用 axios 获取完整响应，而不是 sendMessageToAI
+            // 这样我们才能拿到 status 和 log_id
+            const response = await axios.post('/api/chat',
+                { message: userMessage },
+                { headers: { Authorization: `Bearer ${token}` }}
+            );
+
+            const data = response.data; // 这里面包含了 { reply: "...", log_id: 1, status: false }
+
+            messages.value.push({
+                from: "ai",
+                text: data.reply, // 对应后端的 'reply'
+                isFailure: data.status === false, // 🔥 关键：检查后端返回的 status
+                logId: data.log_id,               // 🔥 关键：保存 log_id
+                waitingForHuman: false,
+                replied: false
+            });
+
+        } catch (error) {
+            console.error("Failed to get AI reply:", error);
+            messages.value.push({ from: "ai", text: "Sorry, I am unable to respond at this time." });
+        } finally {
+            isLoading.value = false;
+            setTimeout(() => {
+                const chatContainer = document.querySelector('.chat-container');
+                if (chatContainer) {
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                }
+            }, 100);
+        }
+    };
+
+    const setInputAndSend = (question) => {
+        resetIdleTimer();
+        input.value = question;
+        // Call sendMessage() immediately after setting the input
+        sendMessage();
+    };
+
+    const endChat = () => {
+        // Show confirmation modal instead of immediate end
+        isEndChatConfirmation.value = true;
+        showModal.value = true;
+        // Stop any running idle countdown immediately
+        clearInterval(modalCountdownTimer);
+        clearTimeout(idleTimer);
+    };
+
+    // --- Voice Input Implementation (kept as-is for functionality) ---
+    const setupSpeechRecognition = () => {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        if (!SpeechRecognition) {
+            console.warn("Speech Recognition not supported in this browser.");
+            return;
+        }
+
+        recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+
+        recognition.onstart = () => {
+            isListening.value = true;
+            console.log('Voice recognition started.');
+        };
+
+        recognition.onresult = (event) => {
+            let finalTranscript = '';
+            let interimTranscript = '';
+
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                const transcript = event.results[i][0].transcript;
+                if (event.results[i].isFinal) {
+                    finalTranscript += transcript;
+                } else {
+                    interimTranscript += transcript;
+                }
+            }
+
+            input.value = finalTranscript + interimTranscript;
+
+            if (finalTranscript) {
+                recognition.stop();
+            }
+        };
+
+        recognition.onerror = (event) => {
+            console.error('Speech recognition error:', event.error);
+            isListening.value = false;
+        };
+
+        recognition.onend = () => {
+            isListening.value = false;
+            console.log('Voice recognition ended.');
+        };
+    };
+
+    const startVoiceInput = () => {
+        if (!recognition) return;
+
+        if (isListening.value) {
+            recognition.stop();
+        } else {
+            input.value = "";
+            recognition.start();
+        }
+    };
 // ------------------------------------
 
-onMounted(() => {
-    setupSpeechRecognition();
-    resetIdleTimer();
-    getTop10FAQs();
-});
+    onMounted(() => {
+        setupSpeechRecognition();
+        resetIdleTimer();
+        getTop10FAQs();
+    });
 
-onUnmounted(() => {
-    clearTimeout(idleTimer);
-    clearInterval(modalCountdownTimer);
-    if (recognition && isListening.value) {
-        recognition.stop();
-    }
-});
+    onUnmounted(() => {
+        if (pollingInterval.value) clearInterval(pollingInterval.value);
+        clearTimeout(idleTimer);
+        clearInterval(modalCountdownTimer);
+        if (recognition && isListening.value) {
+            recognition.stop();
+        }
+    });
+
 </script>
 
 <style scoped>

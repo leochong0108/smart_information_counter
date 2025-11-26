@@ -27,12 +27,15 @@ Route::post('/chat', [aiChatBotController::class, 'chat']);
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/request-help', [App\Http\Controllers\aiChatBotController::class, 'requestHumanHelp']);
+Route::post('/check-reply', [App\Http\Controllers\aiChatBotController::class, 'checkAdminReply']);
 
 Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('user', [aiChatBotController::class, 'userInfo']);
     Route::post('logout', [aiChatBotController::class, 'logOut']);
     Route::post('/generate-summary', [aiChatBotController::class, 'generateDashboardSummary']);
+
 
     Route::get('/allIntents', [intentController::class, 'index']);
     Route::get('/findIntents/{id}', [intentController::class, 'show']);
@@ -59,6 +62,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/selectFailedLogs', [questionLogController::class, 'selectFail']);
     Route::post('/mark-failed-logs', [QuestionLogController::class, 'markSelectedAsChecked']);
     Route::post('/insertAndMark/{id}', [questionLogController::class, 'insertAndMark']);
+    Route::get('/admin/support-requests', [App\Http\Controllers\questionLogController::class, 'getPendingSupportRequests']);
+    Route::post('/admin/reply-support', [App\Http\Controllers\questionLogController::class, 'replyToSupportRequest']);
 
 
     Route::get('/top10Faqs', [statisticController::class, 'selectMost10']);

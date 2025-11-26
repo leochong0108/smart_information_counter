@@ -29,5 +29,8 @@ class QuestionLog extends Model
         'status',
         'checked',
         'faq_id',
+        'help_requested',
+        'admin_reply',
+        'replied_at'
     ];
 }
