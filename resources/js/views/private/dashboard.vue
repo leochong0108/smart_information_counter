@@ -222,7 +222,7 @@
         </div>
     </div>
 
-    <div class="position-fixed bottom-0 end-0 p-4" style="z-index: 1050;" v-if="showFab">
+    <div class="position-fixed bottom-0 end-0 p-4" style="z-index: 1050;" v-if="showFab" data-html2canvas-ignore="true">
         <button @click="aiSummary ? scrollToBottom() : triggerAnalysis()"
                 class="btn rounded-circle shadow-lg p-3 d-flex align-items-center justify-content-center"
                 :class="aiSummary ? 'btn-secondary' : 'btn-primary'"

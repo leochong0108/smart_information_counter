@@ -80,16 +80,6 @@ class aiChatBotController extends Controller
         return "{$department->name} is located at {$department->location}. Contact: {$department->contact_info}.";
     }
 
-/*         private function getIntentInfo($name)
-        {
-            $intent = Intent::where('name', 'like', "%$name%")->first();
-            if (!$intent) {
-                return "I couldn't find intent information for '$name'.";
-            }
-            return "Intent: {$intent->name} — {$intent->description}.";
-        } */
-
-// ... (Helper functions getFaqAnswer, getDepartmentInfo, getIntentInfo remain unchanged)
 
 public function chat(Request $request)
     {
