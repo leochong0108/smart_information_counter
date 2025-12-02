@@ -396,10 +396,11 @@ export default {
 
             const formData = new FormData();
             formData.append('file', file);
+            formData.append('type', 'faq');
 
             if (token) {
                 try {
-                    await axios.post('/api/import', formData, {
+                    await axios.post('/api/importExcel', formData, {
                         headers: {
                             'Content-Type': 'multipart/form-data',
                             Authorization: `Bearer ${token}`,

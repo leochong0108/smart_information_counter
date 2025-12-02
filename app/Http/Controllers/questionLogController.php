@@ -13,7 +13,7 @@ class questionLogController extends Controller
 {
     public function index()
     {
-        $questionLogs = QuestionLog::all();
+        $questionLogs = QuestionLog::with(['intent', 'department', 'faq'])->get();
         return response()->json($questionLogs);
     }
 

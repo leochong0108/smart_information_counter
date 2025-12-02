@@ -17,6 +17,7 @@ use App\Http\Controllers\intentController;
 use App\Http\Controllers\faqController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\statisticController;
+use App\Services\ExcelService;
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
@@ -48,8 +49,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/createFaqs', [faqController::class, 'store']);
     Route::put('/updateFaqs/{id}', [faqController::class, 'update']);
     Route::delete('/deleteFaqs/{id}', [faqController::class, 'destroy']);
-    Route::post('/importExcel', [faqController::class, 'import']);
-    Route::get('/exportExcel', [faqController::class, 'export']);
+    Route::post('/importExcel', [ExcelService::class, 'importExcel']);
 
     Route::get('/allDepartments', [departmentController::class, 'index']);
     Route::get('/findDepartments/{id}', [departmentController::class, 'show']);

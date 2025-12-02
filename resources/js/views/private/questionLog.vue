@@ -83,6 +83,9 @@
                                 <th scope="col">ID</th>
                                 <th scope="col">Question</th>
                                 <th scope="col">Answer</th>
+                                <th scope="col">FAQs</th>
+                                <th scope="col">Department</th>
+                                <th scope="col">Intents</th>
                                 <th scope="col">Status</th>
                             </tr>
                         </thead>
@@ -92,10 +95,16 @@
                                 <td>{{ log.question_text }}</td>
                                 <td v-if="log.answer_text == null">-</td>
                                 <td v-else>{{ log.answer_text }}</td>
+                                <td v-if="log.faq_id == null">-</td>
+                                <td v-else>{{ log.faq.question }}</td>
+                                <td v-if="log.department_id == null">-</td>
+                                <td v-else>{{ log.department.name }}</td>
+                                <td v-if="log.intent_id == null">-</td>
+                                <td v-else>{{ log.intent.intent_name }}</td>
                                 <td v-if="log.status == null">
                                     -
                                 </td>
-                                <td v-else-if="log.status == 1">Success</td>
+                                <td v-else-if="log.status == 1" class="success-text">Success</td>
                                 <td v-else class="failed-text">Failed</td>
                             </tr>
                         </tbody>
@@ -142,6 +151,7 @@ export default {
                         headers: { Authorization: `Bearer ${token}` }
                     });
                     logs.value = response.data;
+                    console.log(logs.value);
                 } catch (err) {
                     error.value = err.response?.data?.message || 'Error fetching logs';
                 }
@@ -237,6 +247,7 @@ export default {
             getLogs();
             getDepartments();
             getIntents();
+            getFAQs();
         });
 
         return {
@@ -248,6 +259,8 @@ export default {
             intents,
             getIntents,
             getDepartments,
+            getFAQs,
+            FAQs,
             loading,
             searchTerm,
             selectedIntentId,
@@ -287,5 +300,10 @@ export default {
         .failed-text {
             font-weight: bold;
             color: red !important;
+        }
+
+        .success-text {
+            font-weight: bold;
+            color: rgb(0, 255, 55) !important;
         }
 </style>

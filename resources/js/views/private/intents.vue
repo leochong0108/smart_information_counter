@@ -7,7 +7,7 @@
             <button @click="exportIntents" class="btn btn-success me-2">
                 <i class="fas fa-file-export"></i> Export Excel
             </button>
-            <input type="file" ref="importFile" style="display:none" @change="importIntents" />
+            <input type="file" ref="importFileRef" style="display:none" accept=".xlsx, .xls, .csv" @change="onFileChange" />
             <button @click="triggerImport" class="btn btn-secondary me-2">
                 <i class="fas fa-file-import"></i> Import Excel
             </button>
@@ -119,6 +119,7 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 // Assuming useDataFetcher exposes a way to fetch intents and departments
 import { useDataFetcher } from '../../services/dataFetcher';
+import { useExcelImport } from '../../services/useExcelImport';
 
 export default {
     setup() {
@@ -137,6 +138,13 @@ export default {
 
         }
         = useDataFetcher();
+
+        const { isLoading, importFileRef, triggerImport, handleFileUpload } = useExcelImport();
+
+        const onFileChange = (event) => {
+            // 调用通用上传函数，传入: 事件对象, 类型字符串, 成功后的回调
+            handleFileUpload(event, 'intent', getIntents);
+        };
 
         const searchTerm = ref('');
         const selectedIntentId = ref(''); // Bound to the Intent dropdown
@@ -341,8 +349,7 @@ export default {
                 const exportData = intents.value.map(intent => ({
                     ID: intent.id,
                     Intent_Name: intent.intent_name,
-                    Department_ID: intent.department_id,
-                    Department_Name: intent.department ? intent.department.name : 'None',
+                    Department: intent.department ? intent.department.name : 'None',
                 }));
 
                 // Convert JSON to worksheet
@@ -356,44 +363,13 @@ export default {
                     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                 });
                 saveAs(blob, 'Intents.xlsx');
-                Swal.fire('Exported!', 'Intent data successfully exported.', 'success');
+                //Swal.fire('Exported!', 'Intent data successfully exported.', 'success');
             } catch (error) {
                 console.error('Export Error:', error);
                 Swal.fire('Error', 'Failed to export Intents', 'error');
             }
         };
 
-        const triggerImport = () => {
-            importFile.value.click();
-        };
-
-        // --- IMPORT from Excel ---
-        const importIntents = async (event) => {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            const formData = new FormData();
-            formData.append('file', file);
-
-            if (token) {
-                try {
-                    // API endpoint updated for importing Intents
-                    // This endpoint should handle the Excel file and create/update Intents
-                    await axios.post('/api/importIntents', formData, {
-                        headers: {
-                            'Content-Type': 'multipart/form-data',
-                            Authorization: `Bearer ${token}`,
-                        },
-                    });
-                    await getIntents();
-                    Swal.fire('Success', 'Intents imported successfully', 'success');
-                } catch (error) {
-                    Swal.fire('Error', error.response?.data?.message || 'Import failed', 'error');
-                }
-            }
-            // Reset the file input to allow re-importing the same file
-            event.target.value = null;
-        };
 
         onMounted(() => {
             fetchAllData();
@@ -404,12 +380,13 @@ export default {
             departments,
             error,
             loading,
+            importFileRef,
             createIntent,
             editIntent,
             deleteIntent,
             exportIntents,
             triggerImport,
-            importIntents,
+            onFileChange,
             importFile,
             filteredIntents,
             searchTerm,

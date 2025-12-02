@@ -3,10 +3,18 @@
         <div class="row">
                 <div class="col-12 d-flex align-items-center justify-content-between mb-2">
                     <h1>Departments Management</h1>
-
-                    <button @click="createDepartments" class="btn btn-primary">
-                        <i class="fas fa-plus-circle"></i> + Add New
-                    </button>
+                    <div>
+                        <button @click="exportDepartments" class="btn btn-success me-2">
+                            <i class="fas fa-file-export"></i> Export Excel
+                        </button>
+                        <input type="file" ref="importFileRef" style="display:none" accept=".xlsx, .xls, .csv" @change="onFileChange" />
+                        <button @click="triggerImport" class="btn btn-secondary me-2">
+                            <i class="fas fa-file-import"></i> Import Excel
+                        </button>
+                        <button @click="createDepartments" class="btn btn-primary">
+                            <i class="fas fa-plus-circle"></i> + Add New
+                        </button>
+                    </div>
                 </div>
         </div>
         <div class="row mb-3">
@@ -87,29 +95,23 @@
 import { ref, onMounted, computed } from 'vue';
 import axios from 'axios';
 import Swal from 'sweetalert2';
+import { useExcelImport } from '../../services/useExcelImport';
+import { useDataFetcher } from '../../services/dataFetcher';
+import * as XLSX from 'xlsx';
 
 export default {
     setup() {
-        const departments = ref([]);
         const error = ref(null);
         const token = localStorage.getItem('sanctum_token');
 
         const searchTerm = ref('');
         const selectedDepartmentId = ref(''); // Bound to the Department dropdown
+        const { isLoading, importFileRef, triggerImport, handleFileUpload } = useExcelImport();
+        const {getDepartments, departments} = useDataFetcher();
 
-        const getDepartments = async () => {
-
-        if(token){
-                try {
-                    const response = await axios.get('/api/allDepartments', {
-                        headers: { Authorization: `Bearer ${token}` }
-                    });
-                    departments.value = response.data;
-                    console.log(departments.value);
-                } catch (err) {
-                    error.value = err.response?.data?.message || 'Error fetching departments';
-                }
-            };
+        const onFileChange = (event) => {
+            // 调用通用上传函数，传入: 事件对象, 类型字符串, 成功后的回调
+            handleFileUpload(event, 'department', getDepartments);
         };
 
 
@@ -265,6 +267,40 @@ export default {
             return data;
         });
 
+        const exportDepartments = () => {
+            if (!departments.value.length) {
+                Swal.fire('No Data', 'There is no departments data to export.', 'info');
+                return;
+            }
+
+            try {
+                // Map data to include department name for clarity in export
+                const exportData = departments.value.map(department => ({
+                    ID: department.id,
+                    Name: department.name,
+                    Description: department.description,
+                    Location: department.location,
+                    contact_info: department.contact_info
+                }));
+
+                // Convert JSON to worksheet
+                const worksheet = XLSX.utils.json_to_sheet(exportData);
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, 'Departments');
+
+                // Generate and save file
+                const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+                const blob = new Blob([excelBuffer], {
+                    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                });
+                saveAs(blob, 'Departments.xlsx');
+                //Swal.fire('Exported!', 'Intent data successfully exported.', 'success');
+            } catch (error) {
+                console.error('Export Error:', error);
+                Swal.fire('Error', 'Failed to export Departments', 'error');
+            }
+        };
+
         onMounted(() => {
             getDepartments();
         });
@@ -278,7 +314,12 @@ export default {
             deleteDepartments,
             searchTerm,
             selectedDepartmentId,
-            filteredDepartments
+            filteredDepartments,
+            importFileRef,
+            triggerImport,
+            handleFileUpload,
+            onFileChange,
+            exportDepartments
         };
     }
 };
