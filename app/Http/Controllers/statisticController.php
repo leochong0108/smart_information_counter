@@ -207,24 +207,57 @@ class statisticController extends Controller
         return response()->json($intents);
     }
 
-    public function getDashboardMetrics()
-    {
+public function getDashboardMetrics(Request $request)
+{
+    // 1. 获取前端传来的参数
+    $filter = $request->input('filter', 'all-time');
+    $startDate = $request->input('startDate');
+    $endDate = $request->input('endDate');
 
-        $totalFails = QuestionLog::where('status', false)->count();
-        $totalSuccess = QuestionLog::where('status', true)->count();
+    // 2. 创建基础查询构建器
+    $query = QuestionLog::query();
 
-
-        $totalQuestions = $totalFails + $totalSuccess;
-
-
-        $metrics = [
-            'totalFail' => $totalFails,
-            'totalSuccess' => $totalSuccess,
-            'totalQuestions' => $totalQuestions,
-        ];
-
-        return response()->json($metrics);
+    // 3. 应用日期过滤逻辑 (这部分逻辑应该和你其他 API 保持一致)
+    switch ($filter) {
+        case 'daily':
+            $query->whereDate('created_at', Carbon::today());
+            break;
+        case 'weekly':
+            $query->whereBetween('created_at', [Carbon::now()->startOfWeek(), Carbon::now()->endOfWeek()]);
+            break;
+        case 'monthly':
+            $query->whereMonth('created_at', Carbon::now()->month)
+                  ->whereYear('created_at', Carbon::now()->year);
+            break;
+        case 'yearly':
+            $query->whereYear('created_at', Carbon::now()->year);
+            break;
+        case 'custom-range':
+            if ($startDate && $endDate) {
+                // 确保包含当天的结束时间 (23:59:59)
+                $start = Carbon::parse($startDate)->startOfDay();
+                $end = Carbon::parse($endDate)->endOfDay();
+                $query->whereBetween('created_at', [$start, $end]);
+            }
+            break;
+        // 'all-time' 不需要做任何过滤
     }
+
+    // 4. 使用 clone 来分别计算成功和失败，避免代码重复
+    // 注意：必须 clone，否则第一个 count() 会执行查询，后续无法复用
+    $totalFails = (clone $query)->where('status', false)->count();
+    $totalSuccess = (clone $query)->where('status', true)->count();
+
+    $totalQuestions = $totalFails + $totalSuccess;
+
+    $metrics = [
+        'totalFail' => $totalFails,
+        'totalSuccess' => $totalSuccess,
+        'totalQuestions' => $totalQuestions,
+    ];
+
+    return response()->json($metrics);
+}
 
 
 }
