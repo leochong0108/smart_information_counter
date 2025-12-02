@@ -43,7 +43,9 @@
 
             </ul>
             <form class="d-flex" >
-                <button class="btn me-2 position-relative"
+                <button
+                    type="button"
+                    class="btn me-2 position-relative"
                     :class="liveRequests.length > 0 ? 'btn-warning' : 'btn-outline-secondary'"
                     @click="openHelpModal">
                     <i class="bi bi-headset"></i> Live Help
@@ -54,7 +56,7 @@
                 <button class="btn btn-outline-success me-2" type="button" @click="viewFailLog">
                     Failed Logs <span class="badge bg-danger">{{ failsCount }}</span>
                 </button>
-                 <button v-if="isLoggedIn" @click="handleLogout" class="btn btn-danger" style= "margin-right: 10px;">Logout</button>
+                 <button type="button" v-if="isLoggedIn" @click="handleLogout" class="btn btn-danger" style= "margin-right: 10px;">Logout</button>
                  <RouterLink v-else to="/login" class="hover:bg-gray-700 p-2 rounded">Login</RouterLink>
                  <RouterLink to="/" class=""><button  class='btn btn-primary'>To Chat</button></RouterLink>
             </form>
