@@ -1,22 +1,14 @@
 <?php
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
-use App\Services\GeminiService;
-use App\Models\Intent;
-use App\Models\Faq;
-use App\Models\Department;
-use App\Models\Query;
-use OpenAI\Laravel\Facades\OpenAI;
-use Illuminate\Support\Facades\Log;
-use App\Http\Controllers\aiChatBotController;
-use App\Http\Controllers\questionLogController;
-use App\Http\Controllers\departmentController;
-use App\Http\Controllers\intentController;
-use App\Http\Controllers\faqController;
+use App\Http\Controllers\AiChatBotController;
+use App\Http\Controllers\QuestionLogController;
+use App\Http\Controllers\DepartmentController;
+use App\Http\Controllers\IntentController;
+use App\Http\Controllers\FaqController;
 use App\Http\Controllers\AuthController;
-use App\Http\Controllers\statisticController;
+use App\Http\Controllers\StatisticController;
 use App\Services\ExcelService;
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
@@ -24,53 +16,53 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 });
 
 //gemini logic
-Route::post('/chat', [aiChatBotController::class, 'chat']);
+Route::post('/chat', [AiChatBotController::class, 'chat']);
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
-Route::post('/request-help', [App\Http\Controllers\aiChatBotController::class, 'requestHumanHelp']);
-Route::post('/check-reply', [App\Http\Controllers\aiChatBotController::class, 'checkAdminReply']);
-Route::get('/top10ForChat', [statisticController::class, 'selectTop10ForChat']);
+Route::post('/request-help', [App\Http\Controllers\AiChatBotController::class, 'requestHumanHelp']);
+Route::post('/check-reply', [App\Http\Controllers\AiChatBotController::class, 'checkAdminReply']);
+Route::get('/top10ForChat', [StatisticController::class, 'selectTop10ForChat']);
 
 Route::middleware('auth:sanctum')->group(function () {
 
-    Route::get('user', [aiChatBotController::class, 'userInfo']);
-    Route::post('logout', [aiChatBotController::class, 'logOut']);
-    Route::post('/generate-summary', [aiChatBotController::class, 'generateDashboardSummary']);
+    Route::get('user', [AiChatBotController::class, 'userInfo']);
+    Route::post('logout', [AiChatBotController::class, 'logOut']);
+    Route::post('/generate-summary', [AiChatBotController::class, 'generateDashboardSummary']);
 
 
-    Route::get('/allIntents', [intentController::class, 'index']);
-    Route::get('/findIntents/{id}', [intentController::class, 'show']);
-    Route::post('/createIntents', [intentController::class, 'store']);
-    Route::put('/updateIntents/{id}', [intentController::class, 'update']);
-    Route::delete('/deleteIntents/{id}', [intentController::class, 'destroy']);
+    Route::get('/allIntents', [IntentController::class, 'index']);
+    Route::get('/findIntents/{id}', [IntentController::class, 'show']);
+    Route::post('/createIntents', [IntentController::class, 'store']);
+    Route::put('/updateIntents/{id}', [IntentController::class, 'update']);
+    Route::delete('/deleteIntents/{id}', [IntentController::class, 'destroy']);
 
-    Route::get('/allFaqs', [faqController::class, 'index']);
-    Route::get('/FindFaqs/{id}', [faqController::class, 'show']);
-    Route::post('/createFaqs', [faqController::class, 'store']);
-    Route::put('/updateFaqs/{id}', [faqController::class, 'update']);
-    Route::delete('/deleteFaqs/{id}', [faqController::class, 'destroy']);
+    Route::get('/allFaqs', [FaqController::class, 'index']);
+    Route::get('/FindFaqs/{id}', [FaqController::class, 'show']);
+    Route::post('/createFaqs', [FaqController::class, 'store']);
+    Route::put('/updateFaqs/{id}', [FaqController::class, 'update']);
+    Route::delete('/deleteFaqs/{id}', [FaqController::class, 'destroy']);
     Route::post('/importExcel', [ExcelService::class, 'importExcel']);
 
-    Route::get('/allDepartments', [departmentController::class, 'index']);
-    Route::get('/findDepartments/{id}', [departmentController::class, 'show']);
-    Route::post('/createDepartments', [departmentController::class, 'store']);
-    Route::put('/updateDepartments/{id}', [departmentController::class, 'update']);
-    Route::delete('/deleteDepartments/{id}', [departmentController::class, 'destroy']);
+    Route::get('/allDepartments', [DepartmentController::class, 'index']);
+    Route::get('/findDepartments/{id}', [DepartmentController::class, 'show']);
+    Route::post('/createDepartments', [DepartmentController::class, 'store']);
+    Route::put('/updateDepartments/{id}', [DepartmentController::class, 'update']);
+    Route::delete('/deleteDepartments/{id}', [DepartmentController::class, 'destroy']);
 
-    Route::get('/allQuestionLogs', [questionLogController::class, 'index']);
-    Route::get('/findQuestionLogs/{id}', [questionLogController::class, 'show']);
-    Route::get('/selectFailedLogs', [questionLogController::class, 'selectFail']);
+    Route::get('/allQuestionLogs', [QuestionLogController::class, 'index']);
+    Route::get('/findQuestionLogs/{id}', [QuestionLogController::class, 'show']);
+    Route::get('/selectFailedLogs', [QuestionLogController::class, 'selectFail']);
     Route::post('/mark-failed-logs', [QuestionLogController::class, 'markSelectedAsChecked']);
-    Route::post('/insertAndMark/{id}', [questionLogController::class, 'insertAndMark']);
-    Route::get('/admin/support-requests', [App\Http\Controllers\questionLogController::class, 'getPendingSupportRequests']);
-    Route::post('/admin/reply-support', [App\Http\Controllers\questionLogController::class, 'replyToSupportRequest']);
+    Route::post('/insertAndMark/{id}', [QuestionLogController::class, 'insertAndMark']);
+    Route::get('/admin/support-requests', [App\Http\Controllers\QuestionLogController::class, 'getPendingSupportRequests']);
+    Route::post('/admin/reply-support', [App\Http\Controllers\QuestionLogController::class, 'replyToSupportRequest']);
 
 
-    Route::get('/top10Faqs', [statisticController::class, 'selectMost10']);
-    Route::get('/totalIntents', [statisticController::class, 'totalIntents']);
-    Route::get('/getDashboardMetrics', [statisticController::class, 'getDashboardMetrics']);
-    Route::get('/department-trend', [statisticController::class, 'departmentTrend']);
+    Route::get('/top10Faqs', [StatisticController::class, 'selectMost10']);
+    Route::get('/totalIntents', [StatisticController::class, 'totalIntents']);
+    Route::get('/getDashboardMetrics', [StatisticController::class, 'getDashboardMetrics']);
+    Route::get('/department-trend', [StatisticController::class, 'departmentTrend']);
 
 });
 

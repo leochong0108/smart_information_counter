@@ -1,16 +1,16 @@
 import { createRouter, createWebHashHistory } from 'vue-router';
 import Home from '../views/public/Home.vue';
 import Chat from '../views/public/Chat.vue';
-import Login from '../views/private/login.vue'; // Import the new Login component
+import Login from '../views/private/Login.vue'; // Import the new Login component
 import AdminLayout from '../views/private/AdminLayout.vue'; // This will be the main container for private routes
-import Intents from '../views/private/intents.vue';
-import Faqs from '../views/private/faqs.vue';
-import Departments from '../views/private/departments.vue';
-import QuestionLogs from '../views/private/questionLog.vue';
+import Intents from '../views/private/Intents.vue';
+import Faqs from '../views/private/Faqs.vue';
+import Departments from '../views/private/Departments.vue';
+import QuestionLogs from '../views/private/QuestionLog.vue';
 import NotFoundComponent from '../components/NotFound.vue'; // A simple 404 component
 import Register from '../views/private/Register.vue'; // If you create a register component
-import FailLog from '../views/private/failLog.vue';
-import dashboard from '../views/private/dashboard.vue';
+import FailLog from '../views/private/FailLog.vue';
+import dashboard from '../views/private/Dashboard.vue';
 
 const routes = [
   // Public routes that don't require authentication

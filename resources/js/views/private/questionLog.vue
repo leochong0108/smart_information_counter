@@ -232,7 +232,7 @@ import axios from 'axios';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
-import { useDataFetcher } from '../../services/dataFetcher';
+import { useDataFetcher } from '../../services/useDataFetcher';
 
 export default {
     setup() {

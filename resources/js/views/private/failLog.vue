@@ -218,7 +218,7 @@
 import { ref, reactive, onMounted, computed } from 'vue';
 import axios from 'axios';
 import Swal from 'sweetalert2';
-import { useDataFetcher } from '../../services/dataFetcher';
+import { useDataFetcher } from '../../services/useDataFetcher';
 import { useFailedLogStore } from '../../services/useFailsLog';
 
 export default {
