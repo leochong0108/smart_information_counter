@@ -107,4 +107,38 @@ class GeminiService
         Log::error('Gemini API (generateText) failed: ' . $response->body());
         return "Sorry, a secondary API call for rephrasing failed.";
     }
+
+    /**
+     * 将文本转换为向量 (Embedding)
+     * @param string $text
+     * @return array|null 返回浮点数数组
+     */
+    public function generateEmbedding($text)
+    {
+        // 使用专门的 Embedding 模型
+        $url = "https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key={$this->apiKey}";
+
+        $payload = [
+            "model" => "models/text-embedding-004",
+            "content" => [
+                "parts" => [
+                    ["text" => $text]
+                ]
+            ]
+        ];
+
+        try {
+            $response = Http::post($url, $payload);
+
+            if ($response->successful()) {
+                return $response->json()['embedding']['values'];
+            }
+
+            \Log::error('Embedding API Error: ' . $response->body());
+            return null;
+        } catch (\Exception $e) {
+            \Log::error('Embedding Exception: ' . $e->getMessage());
+            return null;
+        }
+    }
 }
