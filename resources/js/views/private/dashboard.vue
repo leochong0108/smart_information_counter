@@ -1,6 +1,7 @@
 <template>
-<div class="container-fluid mt-4" id="dashboard-content">
+<div class="container-fluid py-4" id="dashboard-content">
 
+    <!-- 1. Header (Export Only) - Search is inside the filter card -->
     <div class="row mb-3" v-if="exporting">
         <div class="col-12">
             <h2 class="text-center">Dashboard Comparison Report</h2>
@@ -8,132 +9,172 @@
         </div>
     </div>
 
-    <div class="row">
+    <!-- 2. Metrics & Filter Row -->
+    <div class="row g-3 mb-4">
 
-        <div class="col-12 col-md-3 mb-1">
-            <div class="metric-card card text-white bg-primary h-100">
-                <div class="card-body d-flex flex-column justify-content-center">
-                    <div class="metric-title">Total Queries</div>
-                    <div class="metric-value font-weight-bold">
-                        <h6 v-if="isCompareMode">Period 1:</h6> {{ dataA.stats.totalQuestions || 0 }}
-                        <span v-if="dataA.stats.totalQuestions > dataB.stats.totalQuestions" class="text-success" style="font-size: 1rem;">▲</span>
-                        <span v-else-if="dataA.stats.totalQuestions < dataB.stats.totalQuestions" class="text-warning" style="font-size: 1rem;">▼</span>
-                    </div>
-                    <div v-if="isCompareMode" class="metric-value font-weight-bold small opacity-75 mt-1 border-top pt-1">
-                        <h6>Period 2:</h6>  {{ dataB.stats.totalQuestions || 0 }}
-                    </div>
-                </div>
-            </div>
-        </div>
+        <!-- Metric 1: Total Queries -->
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card text-white bg-primary h-100 shadow-sm border-0">
+                <div class="card-body d-flex flex-column justify-content-center p-4">
+                    <div class="metric-title text-white-50 text-uppercase small fw-bold mb-2">Total Queries</div>
 
-        <div class="col-12 col-md-3 mb-1">
-            <div class="metric-card card text-white bg-info h-100">
-                <div class="card-body d-flex flex-column justify-content-center">
-                    <div class="metric-title">Total Success</div>
-                    <div class="metric-value font-weight-bold">
-                        <h6 v-if="isCompareMode">Period 1:</h6> {{ dataA.stats.totalSuccess || 0 }}
-                        <span v-if="dataA.stats.totalSuccess > dataB.stats.totalSuccess" class="text-success" style="font-size: 1rem;">▲</span>
-                        <span v-else-if="dataA.stats.totalSuccess < dataB.stats.totalSuccess" class="text-warning" style="font-size: 1rem;">▼</span>
+                    <!-- Current Period -->
+                    <div class="metric-value fw-bold display-6">
+                        <small class="fs-6 fw-normal opacity-75 d-block mb-1">Current Period:</small>
+                        {{ dataA.stats.totalQuestions || 0 }}
+                        <!-- Arrow Indicator -->
+                        <span v-if="dataA.stats.totalQuestions > dataB.stats.totalQuestions" class="fs-5 ms-2 text-success-light" >▲</span>
+                        <span v-else-if="dataA.stats.totalQuestions < dataB.stats.totalQuestions" class="fs-5 ms-2 text-warning-light" >▼</span>
                     </div>
-                    <div v-if="isCompareMode" class="metric-value font-weight-bold small opacity-75 mt-1 border-top pt-1">
-                        <h6>Period 2:</h6> {{ dataB.stats.totalSuccess || 0 }}
+
+                    <!-- Comparison Period -->
+                    <div v-if="isCompareMode" class="metric-sub-value mt-3 pt-3 border-top border-light border-opacity-25">
+                        <small class="fs-6 fw-normal opacity-75 d-block mb-1">Comparison Period:</small>
+                        <span class="fs-4 fw-bold">{{ dataB.stats.totalQuestions || 0 }}</span>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-12 col-md-3 mb-1">
-            <div class="metric-card card text-white bg-purple h-100">
-                <div class="card-body d-flex flex-column justify-content-center">
-                    <div class="metric-title">Total Failed</div>
-                    <div class="metric-value font-weight-bold">
-                        <h6 v-if="isCompareMode">Period 1:</h6> {{ dataA.stats.totalFail || 0 }}
-                        <span v-if="dataA.stats.totalFail > dataB.stats.totalFail" class="text-success" style="font-size: 1rem;">▲</span>
-                        <span v-else-if="dataA.stats.totalFail < dataB.stats.totalFail" class="text-warning" style="font-size: 1rem;">▼</span>
+        <!-- Metric 2: Total Success -->
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card text-white bg-info h-100 shadow-sm border-0">
+                <div class="card-body d-flex flex-column justify-content-center p-4">
+                    <div class="metric-title text-white-50 text-uppercase small fw-bold mb-2">Total Success</div>
+
+                    <div class="metric-value fw-bold display-6">
+                        <small class="fs-6 fw-normal opacity-75 d-block mb-1">Current Period:</small>
+                        {{ dataA.stats.totalSuccess || 0 }}
+                        <span v-if="dataA.stats.totalSuccess > dataB.stats.totalSuccess" class="fs-5 ms-2 text-success-light" >▲</span>
+                        <span v-else-if="dataA.stats.totalSuccess < dataB.stats.totalSuccess" class="fs-5 ms-2 text-warning-light" >▼</span>
                     </div>
-                    <div v-if="isCompareMode" class="metric-value font-weight-bold small opacity-75 mt-1 border-top pt-1">
-                        <h6>Period 2:</h6> {{ dataB.stats.totalFail || 0 }}
+
+                    <div v-if="isCompareMode" class="metric-sub-value mt-3 pt-3 border-top border-light border-opacity-25">
+                        <small class="fs-6 fw-normal opacity-75 d-block mb-1">Comparison Period:</small>
+                        <span class="fs-4 fw-bold">{{ dataB.stats.totalSuccess || 0 }}</span>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-12 col-md-3 mb-1">
-            <div class="metric-card card bg-light p-2 h-100"  data-html2canvas-ignore="true">
+        <!-- Metric 3: Total Failed -->
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card text-white bg-purple h-100 shadow-sm border-0">
+                <div class="card-body d-flex flex-column justify-content-center p-4">
+                    <div class="metric-title text-white-50 text-uppercase small fw-bold mb-2">Total Failed</div>
 
-                <div class="d-flex flex-column mb-2 p-1 border rounded bg-white">
-                    <small v-if="isCompareMode" class="text-muted mb-1" style="font-size: 0.75rem;">Period 1 (Newest):</small>
+                    <div class="metric-value fw-bold display-6">
+                        <small class="fs-6 fw-normal opacity-75 d-block mb-1">Current Period:</small>
+                        {{ dataA.stats.totalFail || 0 }}
+                        <span v-if="dataA.stats.totalFail > dataB.stats.totalFail" class="fs-5 ms-2 text-success-light" >▲</span>
+                        <span v-else-if="dataA.stats.totalFail < dataB.stats.totalFail" class="fs-5 ms-2 text-warning-light" >▼</span>
+                    </div>
 
-                    <select v-model="filterA.type" class="form-select form-select-sm mb-1">
-                        <option value="all-time">All Time</option>
-                        <option value="daily">Daily</option>
-                        <option value="weekly">Weekly</option>
-                        <option value="monthly">Monthly</option>
-                        <option value="yearly">Yearly</option>
-                        <option value="custom-range">Custom Range</option>
-                    </select>
-
-                    <div v-if="filterA.type === 'custom-range'" class="d-flex gap-1">
-                        <input type="date" v-model="filterA.start" class="form-control form-control-sm">
-                        <input type="date" v-model="filterA.end" class="form-control form-control-sm">
+                    <div v-if="isCompareMode" class="metric-sub-value mt-3 pt-3 border-top border-light border-opacity-25">
+                        <small class="fs-6 fw-normal opacity-75 d-block mb-1">Comparison Period:</small>
+                        <span class="fs-4 fw-bold">{{ dataB.stats.totalFail || 0 }}</span>
                     </div>
                 </div>
+            </div>
+        </div>
 
-                <div class="form-check form-switch mb-2">
-                    <input class="form-check-input" type="checkbox" id="compareToggle" v-model="isCompareMode">
-                    <label class="form-check-label small fw-bold" for="compareToggle">Compare Period</label>
-                </div>
+        <!-- Control Panel (Filter) -->
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card bg-light h-100 shadow-sm border-0" data-html2canvas-ignore="true">
+                <div class="card-body p-3 d-flex flex-column">
 
-                <div v-if="isCompareMode" class="d-flex flex-column mb-2 p-1 border rounded bg-white">
-                    <small class="text-muted mb-1" style="font-size: 0.75rem;">Period 2:</small>
+                    <!-- Filter A -->
+                    <div class="mb-2 bg-white p-2 rounded border">
+                        <label class="small text-muted fw-bold mb-1">Current Period ({{ period1Label }})</label>
+                        <select v-model="filterA.type" class="form-select form-select-sm mb-1">
+                            <option value="all-time">All Time</option>
+                            <option value="daily">Daily (Today)</option>
+                            <option value="weekly">Weekly (This Week)</option>
+                            <option value="monthly">Monthly (This Month)</option>
+                            <option value="yearly">Yearly (This Year)</option>
+                            <option value="custom-range">Custom Range</option>
+                        </select>
+                    <div v-if="filterA.type === 'custom-range'" class="mt-1">
 
-                    <select v-model="filterB.type" class="form-select form-select-sm mb-1">
-                        <option value="daily">Daily</option>
-                        <option value="weekly">Weekly</option>
-                        <option value="monthly">Monthly</option>
-                        <option value="yearly">Yearly</option>
-                        <option value="custom-range">Custom Range</option>
-                    </select>
-
-                    <div v-if="filterB.type === 'custom-range'" class="d-flex gap-1">
-                        <input type="date" v-model="filterB.start" class="form-control form-control-sm">
-                        <input type="date" v-model="filterB.end" class="form-control form-control-sm">
-                    </div>
-                </div>
-
-                <div class="mt-auto">
-                    <div class="row g-2">
-                        <div class="col-6">
-                            <button @click="handleSearch" class="btn btn-primary w-100 d-flex align-items-center justify-content-center">
-                                <i class="bi bi-search me-2"></i> Search
-                            </button>
+                        <!-- 💻 电脑端 (LG以上显示): 保持原汁原味的简单设计 -->
+                        <div class="d-none d-lg-flex gap-2">
+                            <input type="date" v-model="filterA.start" class="form-control form-control-sm" title="Start Date">
+                            <input type="date" v-model="filterA.end" class="form-control form-control-sm" title="End Date">
                         </div>
 
-                        <div class="col-6">
-                            <div class="btn-group w-100">
-                                <button type="button" class="btn btn-success w-100 dropdown-toggle d-flex align-items-center justify-content-center" data-bs-toggle="dropdown" :disabled="loading">
-                                    <span v-if="loading" class="spinner-border spinner-border-sm me-2"></span>
-                                    <i v-else class="bi bi-file-earmark-arrow-down me-2"></i>
-                                    Export
-                                </button>
-                                <ul class="dropdown-menu dropdown-menu-end w-100">
-                                    <li><h6 class="dropdown-header">Choose Format</h6></li>
-                                    <li>
-                                        <a class="dropdown-item" href="#" @click.prevent="exportToExcel">
-                                            <i class="bi bi-file-excel text-success me-2"></i>Excel (Data)
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="#" @click.prevent="exportToPDF">
-                                            <i class="bi bi-file-pdf text-danger me-2"></i>PDF (Report)
-                                        </a>
-                                    </li>
-                                </ul>
+                        <!-- 📱 手机/平板端 (LG以下显示): 垂直堆叠 + 明确标签 -->
+                        <div class="d-flex d-lg-none flex-column gap-2">
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-secondary justify-content-center" style="min-width: 60px;">From</span>
+                                <input type="date" v-model="filterA.start" class="form-control mobile-date-input" required>
+                            </div>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-secondary justify-content-center" style="min-width: 60px;">To</span>
+                                <input type="date" v-model="filterA.end" class="form-control mobile-date-input" required>
                             </div>
                         </div>
-                    </div>
-                </div>
 
+                    </div>
+                    </div>
+
+                    <!-- Toggle Switch -->
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" id="compareToggle" v-model="isCompareMode">
+                        <label class="form-check-label small fw-bold" for="compareToggle">Enable Comparison</label>
+                    </div>
+
+                    <!-- Filter B -->
+                    <div v-if="isCompareMode" class="mb-3 bg-white p-2 rounded border animate-slide-down">
+                        <label class="small text-muted fw-bold mb-1">Comparison Period ({{ period2Label }})</label>
+                        <select v-model="filterB.type" class="form-select form-select-sm mb-1">
+                            <option value="all-time">All Time</option>
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="monthly">Monthly</option>
+                            <option value="yearly">Yearly</option>
+                            <option value="custom-range">Custom Range</option>
+                        </select>
+                    <div v-if="filterB.type === 'custom-range'" class="mt-1">
+
+                        <!-- 💻 电脑端 -->
+                        <div class="d-none d-lg-flex gap-2">
+                            <input type="date" v-model="filterB.start" class="form-control form-control-sm" title="Start Date">
+                            <input type="date" v-model="filterB.end" class="form-control form-control-sm" title="End Date">
+                        </div>
+
+                        <!-- 📱 手机端 -->
+                        <div class="d-flex d-lg-none flex-column gap-2">
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-secondary justify-content-center" style="min-width: 60px;">From</span>
+                                <input type="date" v-model="filterB.start" class="form-control mobile-date-input" required>
+                            </div>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-secondary justify-content-center" style="min-width: 60px;">To</span>
+                                <input type="date" v-model="filterB.end" class="form-control mobile-date-input" required>
+                            </div>
+                        </div>
+
+                    </div>
+                    </div>
+
+                    <!-- Buttons -->
+                    <div class="mt-auto d-grid gap-2 d-md-flex">
+                        <button @click="handleSearch" class="btn btn-primary btn-sm flex-grow-1">
+                            <i class="bi bi-search me-1"></i> Search
+                        </button>
+                        <div class="btn-group flex-grow-1">
+                            <button type="button" class="btn btn-success btn-sm dropdown-toggle w-100" data-bs-toggle="dropdown" :disabled="loading">
+                                <span v-if="loading" class="spinner-border spinner-border-sm me-1"></span>
+                                <i v-else class="bi bi-download me-1"></i> Export
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow">
+                                <li><a class="dropdown-item" href="#" @click.prevent="exportToExcel"><i class="bi bi-file-excel text-success me-2"></i>Excel Data</a></li>
+                                <li><a class="dropdown-item" href="#" @click.prevent="exportToPDF"><i class="bi bi-file-pdf text-danger me-2"></i>PDF Report</a></li>
+                            </ul>
+                        </div>
+                    </div>
+
+                </div>
             </div>
         </div>
     </div>
@@ -141,7 +182,7 @@
     <div class="row mt-4">
         <div :class="isCompareMode ? 'col-12 col-md-6' : 'col-12'">
             <div class="card p-2 h-100">
-                <h6 class="text-center fw-bold p-2">Intent Queries <span v-if="isCompareMode">(Period 1: {{ period1Label }})</span></h6>
+                <h6 class="text-center fw-bold p-2">Intent Queries <span v-if="isCompareMode">(Current Period: {{ period1Label }})</span></h6>
                 <div style="height: auto;">
                     <BarChart :chart-data="chartDataA.intents" :options="barChartOptions" />
                 </div>
@@ -151,7 +192,7 @@
 
         <div class="col-12 col-md-6" v-if="isCompareMode">
             <div class="card p-2 h-100 border-primary">
-                <h6 class="text-center fw-bold p-2 text-primary">Intent Queries (Period 2: {{ period2Label }})</h6>
+                <h6 class="text-center fw-bold p-2 text-primary">Intent Queries (Comparison Period: {{ period2Label }})</h6>
                 <div style="height: auto;">
                     <BarChart :chart-data="chartDataB.intents" :options="barChartOptions" />
                 </div>
@@ -163,7 +204,7 @@
     <div class="row mt-4">
         <div :class="isCompareMode ? 'col-12 col-md-6' : 'col-12'">
             <div class="card p-2 h-100">
-                <h6 class="text-center fw-bold p-2">Department Trends <span v-if="isCompareMode">(Period 1: {{ period1Label }})</span></h6>
+                <h6 class="text-center fw-bold p-2">Department Trends <span v-if="isCompareMode">(Current Period: {{ period1Label }})</span></h6>
                 <div style="height: auto;">
                     <LineChart :chart-data="chartDataA.trends" :options="lineChartOptions" />
                 </div>
@@ -173,7 +214,7 @@
 
         <div class="col-12 col-md-6" v-if="isCompareMode">
             <div class="card p-2 h-100 border-primary">
-                <h6 class="text-center fw-bold p-2 text-primary">Department Trends (Period 2: {{ period2Label }})</h6>
+                <h6 class="text-center fw-bold p-2 text-primary">Department Trends (Comparison Period: {{ period2Label }})</h6>
                 <div style="height: auto;">
                     <LineChart :chart-data="chartDataB.trends" :options="lineChartOptions" />
                 </div>
@@ -182,42 +223,103 @@
         </div>
     </div>
 
-    <div class="row mt-4">
-        <div :class="isCompareMode ? 'col-12 col-md-6' : 'col-12'">
-            <div class="card p-3 h-100">
-                <h5 class="card-title">Top 10 FAQs <span v-if="isCompareMode">(Period 1: {{ period1Label }})</span></h5>
-                <table class="table table-hover table-sm mt-2">
-                    <thead class="table-light">
-                        <tr><th>#</th><th>Question</th><th>Total</th></tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="(item, index) in dataA.faqs.Faq" :key="index">
-                            <td>{{ index + 1 }}</td>
-                            <td class="text-truncate" style="max-width: 250px;">{{ item.question }}</td>
-                            <td>{{ item.total }}</td>
-                        </tr>
-                        <tr v-if="!dataA.faqs.Faq?.length"><td colspan="3" class="text-center text-muted">No data</td></tr>
-                    </tbody>
-                </table>
+    <!-- 4. Top 10 FAQs (Dual View: Table for Desktop, List for Mobile) -->
+    <div class="row g-4 mt-4">
+        <!-- Current Period -->
+        <div :class="isCompareMode ? 'col-12 col-xl-6' : 'col-12'">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-header bg-white py-3">
+                    <h6 class="mb-0 fw-bold">Top 10 FAQs <span v-if="isCompareMode" class="text-muted fw-normal small ms-1">(Current Period)</span></h6>
+                </div>
+                <div class="card-body p-0">
+
+                    <!-- 💻 Desktop Table -->
+                    <div class="d-none d-md-block table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="bg-light text-secondary small text-uppercase">
+                                <tr>
+                                    <th class="px-4">#</th>
+                                    <th>Question</th>
+                                    <th class="text-end px-4">Count</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="(item, index) in dataA.faqs.Faq" :key="index">
+                                    <td class="px-4 fw-bold text-secondary">{{ index + 1 }}</td>
+                                    <td class="text-truncate" style="max-width: 300px;">{{ item.question }}</td>
+                                    <td class="text-end px-4 fw-bold text-dark">{{ item.total }}</td>
+                                </tr>
+                                <tr v-if="!dataA.faqs.Faq?.length">
+                                    <td colspan="3" class="text-center py-4 text-muted small">No data available</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- 📱 Mobile List -->
+                    <ul class="d-md-none list-group list-group-flush">
+                        <li v-for="(item, index) in dataA.faqs.Faq" :key="index" class="list-group-item p-3">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <span class="badge bg-light text-dark border me-2">#{{ index + 1 }}</span>
+                                <span class="badge bg-primary rounded-pill">{{ item.total }}</span>
+                            </div>
+                            <div class="mt-2 fw-medium small">{{ item.question }}</div>
+                        </li>
+                        <li v-if="!dataA.faqs.Faq?.length" class="list-group-item text-center py-4 text-muted small">
+                            No data available
+                        </li>
+                    </ul>
+
+                </div>
             </div>
         </div>
 
-        <div class="col-12 col-md-6" v-if="isCompareMode">
-            <div class="card p-3 h-100 border-primary">
-                <h5 class="card-title text-primary">Top 10 FAQs (Period 2: {{ period2Label }})</h5>
-                <table class="table table-hover table-sm mt-2">
-                    <thead class="table-primary">
-                        <tr><th>#</th><th>Question</th><th>Total</th></tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="(item, index) in dataB.faqs.Faq" :key="index">
-                            <td>{{ index + 1 }}</td>
-                            <td class="text-truncate" style="max-width: 250px;">{{ item.question }}</td>
-                            <td>{{ item.total }}</td>
-                        </tr>
-                        <tr v-if="!dataB.faqs.Faq?.length"><td colspan="3" class="text-center text-muted">No data</td></tr>
-                    </tbody>
-                </table>
+        <!-- Comparison Period -->
+        <div class="col-12 col-xl-6" v-if="isCompareMode">
+            <div class="card h-100 shadow-sm border-start border-primary border-4">
+                <div class="card-header bg-white py-3">
+                    <h6 class="mb-0 fw-bold text-primary">Top 10 FAQs <span class="text-muted fw-normal small ms-1">(Comparison Period)</span></h6>
+                </div>
+                <div class="card-body p-0">
+
+                    <!-- 💻 Desktop Table -->
+                    <div class="d-none d-md-block table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="bg-primary bg-opacity-10 text-primary small text-uppercase">
+                                <tr>
+                                    <th class="px-4">#</th>
+                                    <th>Question</th>
+                                    <th class="text-end px-4">Count</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="(item, index) in dataB.faqs.Faq" :key="index">
+                                    <td class="px-4 fw-bold text-secondary">{{ index + 1 }}</td>
+                                    <td class="text-truncate" style="max-width: 300px;">{{ item.question }}</td>
+                                    <td class="text-end px-4 fw-bold text-dark">{{ item.total }}</td>
+                                </tr>
+                                <tr v-if="!dataB.faqs.Faq?.length">
+                                    <td colspan="3" class="text-center py-4 text-muted small">No data available</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- 📱 Mobile List -->
+                    <ul class="d-md-none list-group list-group-flush">
+                        <li v-for="(item, index) in dataB.faqs.Faq" :key="index" class="list-group-item p-3">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <span class="badge bg-light text-dark border me-2">#{{ index + 1 }}</span>
+                                <span class="badge bg-primary rounded-pill">{{ item.total }}</span>
+                            </div>
+                            <div class="mt-2 fw-medium small">{{ item.question }}</div>
+                        </li>
+                        <li v-if="!dataB.faqs.Faq?.length" class="list-group-item text-center py-4 text-muted small">
+                            No data available
+                        </li>
+                    </ul>
+
+                </div>
             </div>
         </div>
     </div>
@@ -256,20 +358,21 @@
                 <div class="card-body bg-light-subtle">
                     <p class="card-text" style="white-space: pre-line;">{{ aiSummary }}</p>
                     <div class="text-end">
-                        <small class="text-muted" style="font-size: 0.7rem;">Generated on {{ new Date().toLocaleString() }}</small>
+                        <small class="text-muted" style="font-size: 0.8rem;">Generated on {{ new Date().toLocaleString() }}</small>
                     </div>
                 </div>
             </div>
 
         </div>
     </div>
+
 </div>
 </template>
 
 <script>
 import { ref, reactive, onMounted, onUnmounted, computed, watch } from 'vue';
 import axios from 'axios';
-import { BarChart, LineChart } from 'vue-chart-3'; // 移除了 PieChart
+import { BarChart, LineChart } from 'vue-chart-3';
 import { Chart, registerables } from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 import * as XLSX from 'xlsx';
@@ -287,206 +390,118 @@ export default {
         const isCompareMode = ref(false);
         const analyzing = ref(false);
         const aiSummary = ref("");
-        const showFab = ref(false); // 控制悬浮按钮显示
-        const aiSectionRef = ref(null); // 绑定 DOM 元素
-        let observer = null; // 观察器实例
+        const showFab = ref(false);
+        const aiSectionRef = ref(null);
+        let observer = null;
 
-        // --- Filters ---
         const filterA = reactive({ type: 'all-time', start: null, end: null });
-        // Period 2 只需要日期，不需要 type
         const filterB = reactive({ type: 'all-time', start: null, end: null });
 
-        // --- Data Containers ---
-        // 移除了 department (Pie Chart) 的特定处理，trend 已经包含了 department 信息
         const dataA = reactive({ faqs: {}, stats: {}, trend: { labels: [], datasets: [] } });
         const dataB = reactive({ faqs: {}, stats: {}, trend: { labels: [], datasets: [] } });
 
         const getRandomColor = () => '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
         const getDiff = (a, b) => (a || 0) - (b || 0);
 
-        // --- Format Data for Charts ---
-        const formatChartData = (sourceData, sourceTrend) => {
-            // Intent Data (Bar)
-            const intentRaw = sourceData.Intent || [];
-            const intentLabels = intentRaw.map(i => i.intent_name);
-            const intentValues = intentRaw.map(i => i.total);
-            const intentColors = intentValues.map(() => getRandomColor());
+        const period1Label = computed(() => {
+            if (filterA.type === 'custom-range' && filterA.start && filterA.end) return `${filterA.start} ~ ${filterA.end}`;
+            return filterA.type.charAt(0).toUpperCase() + filterA.type.slice(1);
+        });
 
+        const period2Label = computed(() => {
+            if (filterB.type === 'custom-range' && filterB.start && filterB.end) return `${filterB.start} ~ ${filterB.end}`;
+            return filterB.type.charAt(0).toUpperCase() + filterB.type.slice(1);
+        });
+
+        const formatChartData = (sourceData, sourceTrend) => {
+            const intentRaw = sourceData.Intent || [];
             return {
                 intents: {
-                    labels: intentLabels,
+                    labels: intentRaw.map(i => i.intent_name),
                     datasets: [{
                         label: 'Queries',
-                        data: intentValues,
-                        backgroundColor: intentColors,
-                        barPercentage: 0.6
+                        data: intentRaw.map(i => i.total),
+                        backgroundColor: intentRaw.map(() => getRandomColor()),
+                        barPercentage: 0.6,
+                        borderRadius: 4
                     }]
                 },
-                trends: sourceTrend // Trend data is already formatted
+                trends: sourceTrend
             };
         };
 
         const chartDataA = computed(() => formatChartData(dataA.faqs, dataA.trend));
         const chartDataB = computed(() => formatChartData(dataB.faqs, dataB.trend));
 
-        // 🔥 新增：动态计算显示的日期标签
-        const period1Label = computed(() => {
-            if (filterA.type === 'custom-range' && filterA.start && filterA.end) {
-                return `${filterA.start} to ${filterA.end}`;
-            }
-            // 如果是 presets (weekly/daily)，首字母大写显示
-            return `${filterA.type.charAt(0).toUpperCase() + filterA.type.slice(1)}`;
-        });
-
-        const period2Label = computed(() => {
-            if (filterB.type === 'custom-range' && filterB.start && filterB.end) {
-                return `${filterB.start} to ${filterB.end}`;
-            }
-            // 显示类型名称 (首字母大写)
-            return `${filterB.type.charAt(0).toUpperCase() + filterB.type.slice(1)}`;
-        });
-
-        // --- Core API Fetcher ---
         const fetchDataInternal = async (filterType, startDate, endDate) => {
-            let queryParams = `?filter=${filterType}`;
-            if (filterType === 'custom-range' && startDate && endDate) {
-                queryParams += `&startDate=${startDate}&endDate=${endDate}`;
-            }
-
+            let q = `?filter=${filterType}`;
+            if (filterType === 'custom-range' && startDate && endDate) q += `&startDate=${startDate}&endDate=${endDate}`;
             try {
                 const [resFaqs, resTrend, resStats] = await Promise.all([
-                    axios.get(`/api/top10Faqs${queryParams}`, { headers: { Authorization: `Bearer ${token}` } }),
-                    axios.get(`/api/department-trend${queryParams}`, { headers: { Authorization: `Bearer ${token}` } }),
-                    axios.get(`/api/getDashboardMetrics${queryParams}`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: {} }))
+                    axios.get(`/api/top10Faqs${q}`, { headers: { Authorization: `Bearer ${token}` } }),
+                    axios.get(`/api/department-trend${q}`, { headers: { Authorization: `Bearer ${token}` } }),
+                    axios.get(`/api/getDashboardMetrics${q}`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: {} }))
                 ]);
 
-                const datasetsWithColor = resTrend.data.datasets ? resTrend.data.datasets.map(ds => ({
-                    ...ds,
-                    borderColor: getRandomColor(),
-                    backgroundColor: 'transparent',
-                    tension: 0.3
+                const ds = resTrend.data.datasets ? resTrend.data.datasets.map(d => ({
+                    ...d, borderColor: getRandomColor(), backgroundColor: 'transparent', tension: 0.3, borderWidth: 2, pointRadius: 3
                 })) : [];
 
                 return {
                     faqs: resFaqs.data,
-                    // 🔥 修改：直接读取 API 返回值，若无则为 0，不再前端计算
                     stats: {
                         totalQuestions: resStats.data.totalQuestions || 0,
                         totalSuccess: resStats.data.totalSuccess || 0,
                         totalFail: resStats.data.totalFail || 0
                     },
-                    trend: { labels: resTrend.data.labels || [], datasets: datasetsWithColor }
+                    trend: { labels: resTrend.data.labels || [], datasets: ds }
                 };
-            } catch (e) {
-                console.error("Fetch Error", e);
-                return { faqs: {}, stats: {}, trend: { labels: [], datasets: [] } };
-            }
+            } catch (e) { return { faqs: {}, stats: {}, trend: { labels: [], datasets: [] } }; }
         };
 
-        // --- Search Handler ---
         const handleSearch = async () => {
-            // 1. Period 1 检查 (保持不变)
-            // 只有当 Period 1 是 "Custom Range" 且 "没填日期" 时，才清空并停止
-            if (filterA.type === 'custom-range' && (!filterA.start || !filterA.end)) {
-                Object.assign(dataA, { faqs: {}, stats: {}, trend: { labels: [], datasets: [] } });
-                if (isCompareMode.value) {
-                    Object.assign(dataB, { faqs: {}, stats: {}, trend: { labels: [], datasets: [] } });
-                }
-                aiSummary.value = "";
-                return; // ⛔️ 停止执行
-            }
+            if (filterA.type === 'custom-range' && (!filterA.start || !filterA.end)) return;
+            aiSummary.value = ""; loading.value = true;
+            Object.assign(dataA, await fetchDataInternal(filterA.type, filterA.start, filterA.end));
 
-            // --- 开始请求 ---
-            aiSummary.value = "";
-            loading.value = true;
-
-            // 2. Fetch Period A (总是请求)
-            const resA = await fetchDataInternal(filterA.type, filterA.start, filterA.end);
-            Object.assign(dataA, resA);
-
-            // 3. Fetch Period B (🔥 核心修改部分)
-            if (isCompareMode.value) {
-                // 判断 Period 2 是否有效：
-                // 情况一：类型不是 'custom-range' (例如 weekly)，直接有效
-                // 情况二：类型是 'custom-range'，那必须有 start 和 end 日期才有效
-                const isValidB = filterB.type !== 'custom-range' || (filterB.start && filterB.end);
-
-                if (isValidB) {
-                    // ✅ 有效：传入 filterB.type (不再写死 'custom-range')
-                    const resB = await fetchDataInternal(filterB.type, filterB.start, filterB.end);
-                    Object.assign(dataB, resB);
-                } else {
-                    // ❌ 无效 (选了 Custom 但没填日期)：清空 B 数据
-                    Object.assign(dataB, { faqs: {}, stats: {}, trend: { labels: [], datasets: [] } });
-                }
+            if (isCompareMode.value && (filterB.type !== 'custom-range' || (filterB.start && filterB.end))) {
+                Object.assign(dataB, await fetchDataInternal(filterB.type, filterB.start, filterB.end));
             } else {
-                // 没开启对比模式：清空 B 数据
                 Object.assign(dataB, { faqs: {}, stats: {}, trend: { labels: [], datasets: [] } });
             }
-
             loading.value = false;
         };
 
-        watch(() => filterA.type, (newVal) => {
-            if(newVal !== 'custom-range') handleSearch();
-        });
-
-        watch(() => filterB.type, (newVal) => {
-            // 只有开启了对比模式且不是 custom-range 时才自动搜索
-            if (isCompareMode.value && newVal !== 'custom-range') {
-                handleSearch();
-            }
-        });
-
-        watch(isCompareMode, (newVal) => {
+        watch(() => filterA.type, (v) => { if(v !== 'custom-range') handleSearch(); });
+        watch(() => filterB.type, (v) => { if(isCompareMode.value && v !== 'custom-range') handleSearch(); });
+        watch(isCompareMode, (v) => {
             aiSummary.value = "";
-
-            if (newVal) {
-                // 🟢 开启对比模式
-                // 1. 设置类型为 custom-range
-                filterA.type = 'custom-range';
-                filterB.type = 'custom-range';
-                // 2. 清空日期
-                filterA.start = null;
-                filterA.end = null;
-                filterB.start = null;
-                filterB.end = null;
-                // 3. 彻底清空所有数据
+            if (v) {
+                filterA.type = 'custom-range'; filterB.type = 'custom-range';
+                filterA.start = null; filterA.end = null; filterB.start = null; filterB.end = null;
                 Object.assign(dataA, { faqs: {}, stats: {}, trend: { labels: [], datasets: [] } });
                 Object.assign(dataB, { faqs: {}, stats: {}, trend: { labels: [], datasets: [] } });
-
-                // ❌ 关键：这里不要调用 handleSearch()！
-                // 因为日期是空的，handleSearch 会被上面的逻辑拦截（或者清空数据），
-                // 只要我们手动清空了数据，就不需要调 search 了。
-
             } else {
-                // 🔴 关闭对比模式
-                // 切回 All Time
                 filterA.type = 'all-time';
-                // 这里 filterA.type 的变化会触发下面的 watcher，从而自动调用 handleSearch
-                // 所以这里也不需要手动调 handleSearch，让 watcher 去做
             }
         });
 
-        watch(() => isCompareMode.value, (newVal) => { if(!newVal) handleSearch(); }); // Optional: auto-refresh on toggle off
-
-        // --- Export Excel ---
         const exportToExcel = () => {
             const wb = XLSX.utils.book_new();
 
             // 1. Summary
             const summaryRows = [
-                ["Report Generated", new Date().toLocaleString()],
+                ["Report Generated", new Date().toLocaleString() ? "Formular = Current - Comparison = Change": ""],
                 ["Mode", isCompareMode.value ? "Comparison" : "Single Period"],
                 // 🔥 修改：使用 period1Label.value
-                ["Period 1", period1Label.value],
+                ["Current Period", period1Label.value],
                 // 🔥 修改：使用 period2Label.value
-                isCompareMode.value ? ["Period 2", period2Label.value] : [],
+                isCompareMode.value ? ["Comparison Period", period2Label.value] : [],
                 [],
-                ["Metric", "Period 1", isCompareMode.value ? "Period 2" : "", isCompareMode.value ? "Difference (Period 1 minus Period 2)" : ""],
+                ["Metric", "Current Period", isCompareMode.value ? "Comparison Period" : "", isCompareMode.value ? "Change" : ""],
                 ["Total Queries", dataA.stats.totalQuestions, isCompareMode.value ? dataB.stats.totalQuestions : "", isCompareMode.value ? dataA.stats.totalQuestions - dataB.stats.totalQuestions : ""],
-                ["Success", dataA.stats.totalSuccess, isCompareMode.value ? dataB.stats.totalSuccess : "", ""],
-                ["Failed", dataA.stats.totalFail, isCompareMode.value ? dataB.stats.totalFail : "", ""]
+                ["Success", dataA.stats.totalSuccess, isCompareMode.value ? dataB.stats.totalSuccess : "", isCompareMode.value ? dataA.stats.totalSuccess - dataB.stats.totalSuccess : ""],
+                ["Failed", dataA.stats.totalFail, isCompareMode.value ? dataB.stats.totalFail : "", isCompareMode.value ? dataA.stats.totalFail - dataB.stats.totalFail : ""]
             ];
             const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
             wsSummary['!cols'] = [{ wch: 20 }, { wch: 15 }, { wch: 15 }];
@@ -503,8 +518,8 @@ export default {
                 const valB = (dataB.faqs.Intent || []).find(i => i.intent_name === name)?.total || 0;
                 return {
                     "Intent": name,
-                    "Period 1": valA,
-                    ...(isCompareMode.value && { "Period 2": valB, "Difference (Period 1 minus Period 2)": valA - valB })
+                    "Current Period": valA,
+                    ...(isCompareMode.value && { "Comparison Period": valB, "Change": valA - valB })
                 };
             });
             XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(intentRows), "Intents");
@@ -519,8 +534,8 @@ export default {
                 const valB = (dataB.faqs.Department || []).find(d => d.name === name)?.total || 0;
                 return {
                     "Department": name,
-                    "Period 1": valA,
-                    ...(isCompareMode.value && { "Period 2": valB, "Difference (Period 1 minus Period 2)": valA - valB })
+                    "Current Period": valA,
+                    ...(isCompareMode.value && { "Comparison Period": valB, "Change": valA - valB })
                 };
             });
 
@@ -531,16 +546,16 @@ export default {
             for(let i=0; i<maxLen; i++) {
                 const row = {};
                 if(dataA.faqs.Faq?.[i]) {
-                    row["P1 Rank"] = i+1;
-                    row["P1 Question"] = dataA.faqs.Faq[i].question;
-                    row["P1 Count"] = dataA.faqs.Faq[i].total;
+                    row["Current Period Rank"] = i+1;
+                    row["Current Period Question"] = dataA.faqs.Faq[i].question;
+                    row["Current Period Count"] = dataA.faqs.Faq[i].total;
                 }
                 if(isCompareMode.value && dataB.faqs.Faq?.[i]) {
                     row["|"] = "|"; // Separator
-                    row["P2 Rank"] = i+1;
-                    row["P2 Question"] = dataB.faqs.Faq[i].question;
-                    row["P2 Count"] = dataB.faqs.Faq[i].total;
-                    row["Difference (Period 1 minus Period 2)"] = dataA.faqs.Faq[i].total - dataB.faqs.Faq[i].total;
+                    row["Comparison Period Rank"] = i+1;
+                    row["Comparison Period Question"] = dataB.faqs.Faq[i].question;
+                    row["Comparison Period Count"] = dataB.faqs.Faq[i].total;
+                    row["Change"] = dataA.faqs.Faq[i].total - dataB.faqs.Faq[i].total;
                 }
                 faqRows.push(row);
             }
@@ -551,7 +566,6 @@ export default {
             XLSX.writeFile(wb, `Report_${new Date().toISOString().slice(0,10)}.xlsx`);
         };
 
-        // --- Export PDF ---
         const exportToPDF = async () => {
             exporting.value = true;
             loading.value = true;
@@ -582,117 +596,109 @@ export default {
             finally { loading.value = false; exporting.value = false; }
         };
 
-        // --- AI Analysis ---
         const generateAnalysis = async () => {
             analyzing.value = true;
             try {
                 const payload = {
                     mode: isCompareMode.value ? 'comparison' : 'single',
-                    period1: {
-                        // 🔥 修改：使用 period1Label.value 获取可读的日期描述
-                        filter: period1Label.value,
-                        stats: dataA.stats,
-                        topIntent: dataA.faqs.Intent?.[0]?.intent_name
-                    },
-                    period2: isCompareMode.value ? {
-                        // 🔥 修改：使用 period2Label.value
-                        range: period2Label.value,
-                        stats: dataB.stats,
-                        topIntent: dataB.faqs.Intent?.[0]?.intent_name
-                    } : null
+                    period1: { filter: period1Label.value, stats: dataA.stats, topIntent: dataA.faqs.Intent?.[0]?.intent_name },
+                    period2: isCompareMode.value ? { range: period2Label.value, stats: dataB.stats, topIntent: dataB.faqs.Intent?.[0]?.intent_name } : null
                 };
                 const res = await axios.post('/api/generate-summary', { stats: payload }, { headers: { Authorization: `Bearer ${token}` } });
                 aiSummary.value = res.data.summary;
-            } catch(e) {
-                alert("AI Error");
-            } finally {
-                analyzing.value = false;
-            }
+            } catch(e) { alert("AI Error"); } finally { analyzing.value = false; }
         };
 
-        const triggerAnalysis = async () => {
-            // 1. 滚动到底部，让用户看到 Loading
-            setTimeout(() => {
-                const el = document.getElementById('ai-result-section');
-                if(el) el.scrollIntoView({ behavior: 'smooth' });
-            }, 100);
-
-            // 2. 开始生成
-            await generateAnalysis();
+        const triggerAnalysis = () => {
+            scrollToBottom();
+            generateAnalysis();
         };
 
-            // 滚到底部函数
-        const scrollToBottom = () => {
-            if (aiSectionRef.value) {
-                aiSectionRef.value.scrollIntoView({ behavior: 'smooth' });
-            }
-        };
+        const scrollToBottom = () => aiSectionRef.value?.scrollIntoView({ behavior: 'smooth' });
 
-        // 监听底部区域可见性的逻辑
         const setupObserver = () => {
-            // 创建观察器
-            observer = new IntersectionObserver((entries) => {
-                const entry = entries[0];
-                // 如果底部区域正在屏幕内 (isIntersecting 为 true)，则隐藏悬浮按钮
-                // 如果底部区域跑出了屏幕 (用户向上划了)，则显示悬浮按钮
-                showFab.value = !entry.isIntersecting;
-            }, {
-                root: null, // 视口
-                threshold: 0.1 // 只要底部区域出现 10%，就算“可见”
-            });
-
-            if (aiSectionRef.value) {
-                observer.observe(aiSectionRef.value);
-            }
+            observer = new IntersectionObserver((e) => { showFab.value = !e[0].isIntersecting; }, { threshold: 0.1 });
+            if (aiSectionRef.value) observer.observe(aiSectionRef.value);
         };
 
-        const barChartOptions = ref({ responsive: true, maintainAspectRatio: false, plugins: { legend: {display: false}, datalabels: {color: '#fff'} }, scales: { y: {beginAtZero: true, ticks:{precision:0}}} });
-        const lineChartOptions = ref({ responsive: true, maintainAspectRatio: false, plugins: { legend: {position: 'top'} }, scales: { y: {beginAtZero: true, ticks:{precision:0}}} });
+        const barChartOptions = ref({ responsive: true, maintainAspectRatio: false, plugins: { legend: {display: false}, datalabels: {color: '#fff', font: {weight: 'bold'}} }, scales: { y: {beginAtZero: true, grid: {display: false} }, x: {grid: {display: false}} } });
+        const lineChartOptions = ref({ responsive: true, maintainAspectRatio: false, plugins: { legend: {position: 'top', labels: {boxWidth: 10, usePointStyle: true}} }, scales: { y: {beginAtZero: true} } });
 
-        onMounted(() => {
-            handleSearch();
-            setupObserver();
-        });
-
-        onUnmounted(() => {
-        // 销毁观察器，防止内存泄漏
-        if (observer) observer.disconnect();
-        });
+        onMounted(() => { handleSearch(); setupObserver(); });
+        onUnmounted(() => { if (observer) observer.disconnect(); });
 
         return {
-            loading, exporting, isCompareMode, analyzing, aiSummary,
-            aiSectionRef, showFab, scrollToBottom,
-            filterA, filterB, dataA, dataB,
-            chartDataA, chartDataB,
-            barChartOptions, lineChartOptions,
-            handleSearch, fetchCustomRangeData: handleSearch,
-            exportToExcel, exportToPDF, generateAnalysis, getDiff, triggerAnalysis,
-             period1Label, period2Label
+            loading, exporting, isCompareMode, analyzing, aiSummary, aiSectionRef, showFab,
+            filterA, filterB, dataA, dataB, chartDataA, chartDataB,
+            barChartOptions, lineChartOptions, handleSearch, exportToExcel, exportToPDF,
+            generateAnalysis, triggerAnalysis, scrollToBottom, getDiff, period1Label, period2Label
         };
     }
 }
 </script>
 
-<style>
-/* 保持原有样式，微调 Metric Card 以适应小字对比 */
-.metric-card.card {
-    border: none;
-    padding: 10px;
-    height: 120px; /* 固定高度确保整齐 */
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+<style scoped>
+/* 颜色变量 */
+.bg-purple { background-color: #6f42c1 !important; }
+.bg-gradient-primary { background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%); }
+.text-success-light { color: #d1e7dd !important; }
+.text-warning-light { color: #fff3cd !important; }
+
+/* 手机端图表高度微调 */
+@media (max-width: 768px) {
+    .chart-wrapper {
+        min-height: 250px;
+        height: 280px;
+    }
 }
-.metric-title {
-    font-size: 0.9rem;
-    color: rgba(255, 255, 255, 0.8);
-    margin-bottom: 2px;
+
+/* 悬浮按钮样式 */
+.fab-btn {
+    width: 56px;
+    height: 56px;
+    font-size: 1.5rem;
+    transition: transform 0.2s;
 }
-.metric-value {
-    font-size: 2.2rem !important;
-    line-height: 1;
+.fab-btn:active { transform: scale(0.9); }
+
+/* AI 文本排版 */
+.ai-text {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: #2c3e50;
 }
-.bg-primary { background-color: #2c3e50 !important; }
-.bg-success { background-color: #1abc9c !important; }
-.bg-info { background-color: #3498db !important; }
-.bg-purple { background-color: #9b59b6 !important; }
+
+/* 下滑动画 */
+.animate-slide-down {
+    animation: slideDown 0.3s ease-out;
+}
+
+/* 📱 修复手机端 Date Picker 空白问题 */
+.mobile-date-input {
+    color: #212529;
+    background-color: #fff;
+    min-height: 40px; /* 手机上稍微高一点，好点 */
+    font-size: 1rem;  /* 手机上字体大一点防止缩放 */
+}
+
+/* 利用 :invalid 伪类在手机上显示 "Select Date" 提示 */
+.mobile-date-input:invalid::-webkit-datetime-edit {
+    color: transparent;
+}
+.mobile-date-input:invalid::before {
+    content: "Select Date";
+    color: #999;
+    margin-right: 0.5rem;
+    position: absolute;
+}
+
+/* 修复部分 Android 浏览器日期图标太大的问题 */
+input[type="date"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.6;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
 </style>

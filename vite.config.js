@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+/* import { defineConfig } from 'vite';
 import laravel from 'laravel-vite-plugin';
 import vue from '@vitejs/plugin-vue';
 
@@ -10,10 +10,10 @@ export default defineConfig({
     }),
     vue(),
   ],
-});
+}); */
 
 
-/* import { defineConfig } from 'vite';
+import { defineConfig } from 'vite';
 import laravel from 'laravel-vite-plugin';
 import vue from '@vitejs/plugin-vue';
 
@@ -41,4 +41,4 @@ export default defineConfig({
             host: host, // 关键：强制手机连接到电脑 IP 进行热更新
         },
     },
-}); */
+});

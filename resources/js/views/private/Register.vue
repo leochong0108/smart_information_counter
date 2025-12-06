@@ -1,171 +1,220 @@
 <template>
-    <div class="registerform">
-        <div class="card shadow register-card">
-            <div class="card-body p-4 p-md-5">
-                <h2 class="card-title text-center mb-4">Create an Account</h2>
-                <p class="text-center text-muted mb-4">
-                    Or alrady have one?<router-link to="/login"><a class="text-decoration-none">Login Now</a></router-link>
-                </p>
+    <div class="auth-layout d-flex justify-content-center align-items-center">
+        <div class="bg-circle circle-1"></div>
+        <div class="bg-circle circle-2"></div>
 
-                <!-- Loading State -->
-                <div v-if="registerStatus === 'loading'" class="text-center my-5">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
+        <div class="card auth-card shadow-lg border-0 p-4 animate-fade-up">
+            <div class="card-body">
+
+                <!-- Header -->
+                <div class="text-center mb-4">
+                    <div class="icon-box bg-success bg-opacity-10 text-success mx-auto mb-3">
+                        <i class="bi bi-person-plus-fill fs-2"></i>
                     </div>
-                    <p class="mt-3">Creating...</p>
+                    <h3 class="fw-bold text-dark">Create Account</h3>
+                    <p class="text-muted small">Join us to manage the chatbot</p>
                 </div>
 
-                <!-- Success State -->
-                <div v-else-if="registerStatus === 'success'" class="alert alert-success text-center" role="alert">
-                    <h4 class="alert-heading">Created Successful!</h4>
-                    <hr>
-                    <button @click="resetForm" class="btn btn-sm btn-success mt-2">Try Again</button>
+                <!-- Error Alert -->
+                <div v-if="error" class="alert alert-danger d-flex align-items-center p-2 mb-3 small" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    <div>{{ error }}</div>
                 </div>
 
+                <!-- Success Alert -->
+                <div v-if="registerStatus === 'success'" class="alert alert-success p-3 text-center">
+                    <h6 class="alert-heading fw-bold mb-1"><i class="bi bi-check-circle-fill"></i> Success!</h6>
+                    <p class="small mb-2">Your account has been created.</p>
+                    <router-link to="/login" class="btn btn-sm btn-success w-100">Go to Login</router-link>
+                </div>
 
-                <form v-else @submit.prevent="register" novalidate>
+                <!-- Form -->
+                <form v-else @submit.prevent="handleRegister" novalidate>
+                    <!-- Name -->
                     <div class="mb-3">
-                        <label for="name" class="form-label visually-hidden">User Name</label>
-                        <input
-                            id="name"
-                            v-model="name"
-                            type="text"
-                            class="form-control"
-                            placeholder="Name"
-                            required
-                        />
-                    </div>
-                    <div class="mb-3">
-                        <label for="email-address" class="form-label visually-hidden">Email address</label>
-                        <input
-                            id="email-address"
-                            v-model="email"
-                            type="email"
-                            class="form-control"
-                            placeholder="Email address"
-                            required
-                        />
+                        <label class="form-label small fw-bold text-secondary">Full Name</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0"><i class="bi bi-person"></i></span>
+                            <input
+                                v-model="name"
+                                type="text"
+                                class="form-control bg-light border-start-0"
+                                placeholder="Your Name"
+                                required
+                                :disabled="isLoading"
+                            />
+                        </div>
                     </div>
 
+                    <!-- Email -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-secondary">Email Address</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0"><i class="bi bi-envelope"></i></span>
+                            <input
+                                v-model="email"
+                                type="email"
+                                class="form-control bg-light border-start-0"
+                                placeholder="name@example.com"
+                                required
+                                :disabled="isLoading"
+                            />
+                        </div>
+                    </div>
+
+                    <!-- Password -->
                     <div class="mb-4">
-                        <label for="password" class="form-label visually-hidden">Password</label>
-                        <input
-                            id="password"
-                            v-model="password"
-                            type="password"
-                            class="form-control"
-                            placeholder="Password"
-                            required
-                        />
-                    </div>
-
-                    <!-- Error Alert -->
-                    <div v-if="error" class="alert alert-danger" role="alert">
-                        {{ error }}
+                        <label class="form-label small fw-bold text-secondary">Password</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0"><i class="bi bi-lock"></i></span>
+                            <input
+                                :type="showPassword ? 'text' : 'password'"
+                                v-model="password"
+                                class="form-control bg-light border-start-0 border-end-0"
+                                placeholder="Create a password"
+                                required
+                                :disabled="isLoading"
+                            />
+                            <button class="btn btn-light border border-start-0 text-muted" type="button" @click="showPassword = !showPassword">
+                                <i class="bi" :class="showPassword ? 'bi-eye-slash' : 'bi-eye'"></i>
+                            </button>
+                        </div>
+                        <div class="form-text small" v-if="password && password.length < 6">
+                            Must be at least 6 characters.
+                        </div>
                     </div>
 
                     <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-primary btn-lg">
-                            Create
+                        <button type="submit" class="btn btn-primary btn-lg shadow-sm" :disabled="isLoading">
+                            <span v-if="isLoading" class="spinner-border spinner-border-sm me-2"></span>
+                            {{ isLoading ? 'Creating...' : 'Sign Up' }}
                         </button>
                     </div>
                 </form>
+
+                <!-- Footer -->
+                <div class="text-center mt-4 pt-3 border-top">
+                    <p class="small text-muted mb-2">
+                        Already have an account?
+                        <router-link to="/login" class="text-primary text-decoration-none fw-bold">Sign In</router-link>
+                    </p>
+                    <router-link to="/" class="small text-secondary text-decoration-none">
+                        <i class="bi bi-arrow-left"></i> Back to Home
+                    </router-link>
+                </div>
+
             </div>
         </div>
     </div>
 </template>
 
-<script>
-import axios from 'axios';
-import { ref } from 'vue';
+<script setup>
+import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
+import axios from 'axios';
 
-export default {
-    setup() {
-        // State using ref()
-        const name = ref('');
-        const email = ref('');
-        const password = ref('');
-        const error = ref('');
-        const router = useRouter();
-        const registerStatus = ref('form'); // 'form', 'loading', 'success'
+const router = useRouter();
 
-        // Function to reset the form state
-        const resetForm = () => {
-            registerStatus.value = 'form';
-            name.value = '';
-            email.value = '';
-            password.value = '';
-            error.value = '';
-        };
+const name = ref('');
+const email = ref('');
+const password = ref('');
+const error = ref('');
+const registerStatus = ref('idle'); // 'idle', 'loading', 'success'
+const showPassword = ref(false);
 
-        // Function replacing methods
-        const register = async () => {
-            registerStatus.value = 'loading';
-            error.value = '';
+const isLoading = computed(() => registerStatus.value === 'loading');
 
-            // Using the provided API endpoint /api/login
-            try {
-                // Introduce a small delay for a better loading experience
-                await new Promise(resolve => setTimeout(resolve, 500));
+const handleRegister = async () => {
+    // Basic frontend validation
+    if (!name.value || !email.value || !password.value) {
+        error.value = "Please fill in all fields.";
+        return;
+    }
+    if (password.value.length < 6) {
+        error.value = "Password must be at least 6 characters.";
+        return;
+    }
 
-                // Real API call
-                const response = await axios.post('/api/register', {
-                    name: name.value,
-                    email: email.value,
-                    password: password.value,
-                });
+    registerStatus.value = 'loading';
+    error.value = '';
 
-                // Assuming the response contains a token in response.data.token
-                const token = response.data.token;
+    try {
+        await new Promise(resolve => setTimeout(resolve, 600));
 
-                    registerStatus.value = 'success';
-                    router.push('/login');
+        await axios.post('/api/register', {
+            name: name.value,
+            email: email.value,
+            password: password.value,
+        });
 
-            } catch (err) {
-                // Handle the error and revert to the form state
-                registerStatus.value = 'form';
+        // 注册成功后，不直接跳转，而是显示成功信息让用户点去登录
+        registerStatus.value = 'success';
 
-                if (err.response) {
-                    // 1. Server responded with a status outside of 2xx (e.g., 401 Unauthorized)
-                    // The error message might be in err.response.data or err.response.data.message
-                    error.value = err.response.data.message || err.response.data.error || 'Login failed. Invalid credentials.';
-                } else if (err.request) {
-                    // 2. The request was made but no response was received (e.g., network timeout, CORS issues)
-                    error.value = 'Network Error: Could not reach the authentication server.';
-                } else {
-                    // 3. Something else happened (e.g., an error in the JavaScript logic, like missing token)
-                    error.value = err.message || 'An unexpected error occurred during login.';
-                }
-                console.error('register failed:', err);
-            }
-        };
-
-        // Return all reactive state and functions for use in the template
-        return {
-            name,
-            email,
-            password,
-            error,
-            registerStatus,
-            register,
-            resetForm
-        };
+    } catch (err) {
+        registerStatus.value = 'idle';
+        error.value = err.response?.data?.message || 'Registration failed.';
     }
 };
-
 </script>
 
-<style>
-.registerform {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+<style scoped>
+/* 复用 Login 的样式，保持一致 */
+.auth-layout {
+    min-height: 100vh;
+    background-color: #f0f2f5;
+    position: relative;
+    overflow: hidden;
+    padding: 15px;
 }
 
-        .register-card {
-            width: 100%;
-            max-width: 400px;
-        }
+.auth-card {
+    width: 100%;
+    max-width: 400px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    z-index: 10;
+}
+
+.icon-box {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.bg-circle {
+    position: absolute;
+    border-radius: 50%;
+    z-index: 0;
+    opacity: 0.6;
+}
+.circle-1 {
+    width: 300px;
+    height: 300px;
+    background: linear-gradient(135deg, #a2c2e8 0%, #f0f2f5 100%);
+    top: -50px;
+    right: -50px;
+}
+.circle-2 {
+    width: 200px;
+    height: 200px;
+    background: linear-gradient(135deg, #e3f2fd 0%, #dbeafe 100%);
+    bottom: -20px;
+    left: -20px;
+}
+
+.animate-fade-up {
+    animation: fadeUp 0.6s ease-out;
+}
+@keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 576px) {
+    .bg-circle { opacity: 0.3; }
+}
 </style>

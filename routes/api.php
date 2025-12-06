@@ -30,6 +30,7 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/request-help', [App\Http\Controllers\aiChatBotController::class, 'requestHumanHelp']);
 Route::post('/check-reply', [App\Http\Controllers\aiChatBotController::class, 'checkAdminReply']);
+Route::get('/top10ForChat', [statisticController::class, 'selectTop10ForChat']);
 
 Route::middleware('auth:sanctum')->group(function () {
 
@@ -67,7 +68,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
 
     Route::get('/top10Faqs', [statisticController::class, 'selectMost10']);
-    Route::get('/top10ForChat', [statisticController::class, 'selectTop10ForChat']);
     Route::get('/totalIntents', [statisticController::class, 'totalIntents']);
     Route::get('/getDashboardMetrics', [statisticController::class, 'getDashboardMetrics']);
     Route::get('/department-trend', [statisticController::class, 'departmentTrend']);

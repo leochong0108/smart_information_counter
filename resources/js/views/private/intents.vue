@@ -1,425 +1,441 @@
 <template>
-<div class="container-fluid">
-    <div class="row">
-    <div class="col-12 d-flex align-items-center justify-content-between mb-2">
-        <h1>Intent Management </h1>
-        <div>
-            <button @click="exportIntents" class="btn btn-success me-2">
-                <i class="fas fa-file-export"></i> Export Excel
+<div class="container-fluid py-4">
+
+    <!-- 1. Header & Actions -->
+    <div class="row align-items-center mb-4">
+        <div class="col-12 col-md-6 mb-3 mb-md-0">
+            <h1 class="h3 mb-0 text-gray-800">Intent Management</h1>
+        </div>
+        <div class="col-12 col-md-6 d-flex flex-wrap justify-content-md-end gap-2">
+            <button @click="exportIntents" class="btn btn-success flex-grow-1 flex-md-grow-0">
+                <i class="bi bi-file-earmark-spreadsheet"></i> Export
             </button>
-            <input type="file" ref="importFileRef" style="display:none" accept=".xlsx, .xls, .csv" @change="onFileChange" />
-            <button @click="triggerImport" class="btn btn-secondary me-2">
-                <i class="fas fa-file-import"></i> Import Excel
+            <input type="file" ref="importFileRef" style="display:none" accept=".xlsx, .xls, .csv" @change="onImportFileChange" />
+            <button @click="triggerImport" class="btn btn-secondary flex-grow-1 flex-md-grow-0">
+                <i class="bi bi-upload"></i> Import
             </button>
-            <button @click="createIntent" class="btn btn-primary">
-                <i class="fas fa-plus-circle"></i> + Add New
+            <button @click="openCreateModal" class="btn btn-primary flex-grow-1 flex-md-grow-0">
+                <i class="bi bi-plus-lg"></i> Add New
             </button>
         </div>
     </div>
-    </div>
 
-    <div class="row mb-3">
-            <!-- Search Bar -->
-        <div class="col-md-5">
-            <input
-                type="text"
-                v-model="searchTerm"
-                class="form-control"
-                placeholder="Search by intent or ID..."
-            />
-        </div>
+    <!-- 2. Search & Filter -->
+    <div class="card shadow-sm mb-4 border-0">
+        <div class="card-body p-3">
+            <div class="row g-3">
+                <!-- Search -->
+                <div class="col-12 col-md-5">
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search"></i></span>
+                        <input
+                            type="text"
+                            v-model="searchTerm"
+                            class="form-control border-start-0 bg-light"
+                            placeholder="Search intent name, description..."
+                        />
+                    </div>
+                </div>
 
-        <!-- Intent Filter -->
-        <div class="col-md-3">
-            <select v-model="selectedIntentId" class="form-select">
-                <option value="">All Intents</option>
-                <option
-                    v-for="intent in intents"
-                    :key="intent.id"
-                    :value="intent.id"
-                >
-                    {{ intent.intent_name }}
-                </option>
-                <option :value="null">Unassigned Intent</option>
-            </select>
-        </div>
+                <!-- Intent Filter (Dropdown selection) -->
+                <div class="col-6 col-md-3">
+                    <select v-model="selectedIntentId" class="form-select">
+                        <option value="">All Intents</option>
+                        <option v-for="intent in intents" :key="intent.id" :value="intent.id">
+                            {{ intent.intent_name }}
+                        </option>
+                    </select>
+                </div>
 
-        <!-- Department Filter -->
-        <div class="col-md-3">
-            <select v-model="selectedDepartmentId" class="form-select">
-                <option value="">All Departments</option>
-                <option
-                    v-for="dept in departments"
-                    :key="dept.id"
-                    :value="dept.id"
-                >
-                    {{ dept.name }}
-                </option>
-                <option :value="null">Unassigned Department</option>
-            </select>
+                <!-- Department Filter -->
+                <div class="col-6 col-md-4">
+                    <select v-model="selectedDepartmentId" class="form-select">
+                        <option value="">All Departments</option>
+                        <option v-for="dept in departments" :key="dept.id" :value="dept.id">
+                            {{ dept.name }}
+                        </option>
+                        <option :value="null">Unassigned</option>
+                    </select>
+                </div>
+            </div>
         </div>
     </div>
 
-
-<div class="row">
-
-    <div class="col-12 shadow-lg rounded-lg">
-    <div v-if="loading" class="text-center" style="padding: 13rem;">
-        <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
-        </div>
+    <!-- Loading State -->
+    <div v-if="loading" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
     </div>
 
-    <div v-if="!filteredIntents.length && !loading">
-        <p>No Intent Data available. Please add some.</p>
+    <!-- Empty State -->
+    <div v-else-if="!filteredIntents.length" class="text-center py-5 text-muted">
+        <i class="bi bi-diagram-2 fs-1"></i>
+        <p>No Intents found.</p>
     </div>
 
-    <div v-if="filteredIntents.length && !loading" >
-        <table class="table table-hover">
-            <thead>
-                <tr>
-                    <th scope="col">ID</th>
-                    <th scope="col">Intent Name</th>
-                    <th scope="col">Department</th>
-                    <th scope="col">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr v-for="intent in filteredIntents" :key="intent.id">
-                    <td>{{ intent.id }}</td>
-                    <td>{{ intent.intent_name }}</td>
-                    <td v-if="intent.department">
-                        {{ intent.department.name }}
-                    </td>
-                    <td v-else>
-                    -
-                    </td>
-                    <td>
-                        <div class="d-flex">
-                        <button class="btn btn-success" @click="editIntent(intent)"><i class="fas fa-edit"></i>&nbsp;Edit</button>
-                        <button class="btn btn-danger ms-2" @click="deleteIntent(intent.id)"><i class="fas fa-trash-alt"></i>&nbsp;Delete</button>
+    <div v-else>
+
+        <!-- 📱 MOBILE VIEW: Cards (手机端) -->
+        <div class="d-block d-md-none">
+            <div v-for="intent in filteredIntents" :key="intent.id" class="card shadow-sm mb-3 border-0">
+                <div class="card-body">
+                    <!-- Header: ID & Actions -->
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="badge bg-light text-secondary">#{{ intent.id }}</span>
+                        <div class="btn-group">
+                            <button class="btn btn-sm btn-outline-primary" @click="openEditModal(intent)">
+                                <i class="bi bi-pencil-fill"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" @click="deleteIntent(intent.id)">
+                                <i class="bi bi-trash-fill"></i>
+                            </button>
                         </div>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-    </div>
-</div>
-</div>
+                    </div>
 
+                    <!-- Intent Name -->
+                    <h6 class="fw-bold text-dark mb-2">{{ intent.intent_name }}</h6>
 
+                    <!-- Description (Scrollable) -->
+                    <!-- 即使之前列表没显示，现在加上描述会让界面更丰富，且方便管理 -->
+                    <div v-if="intent.description" class="scrollable-content bg-light p-3 rounded mb-3 text-secondary">
+                        {{ intent.description }}
+                    </div>
+
+                    <!-- Department Tag -->
+                    <div>
+                        <span v-if="intent.department" class="badge bg-purple bg-opacity-10 text-purple border border-purple border-opacity-25 text-wrap text-start lh-sm">
+                            <i class="bi bi-building"></i> {{ intent.department.name }}
+                        </span>
+                        <span v-else class="badge bg-secondary bg-opacity-10 text-secondary">
+                            Unassigned
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 💻 DESKTOP/TABLET VIEW: Table (电脑端) -->
+        <div class="d-none d-md-block card shadow border-0 rounded-3 overflow-hidden">
+            <div class="table-responsive">
+                <table class="table table-hover align-top mb-0">
+                    <thead class="bg-light text-secondary">
+                        <tr>
+                            <th class="px-3 py-3" style="width: 5%">#</th>
+                            <th class="px-3 py-3" style="width: 5%">ID</th>
+                            <th class="px-3 py-3" style="width: 25%">Intent Name</th>
+                            <th class="px-3 py-3" style="width: 35%">Description</th>
+                            <th class="px-3 py-3" style="width: 20%">Department</th>
+                            <th class="px-3 py-3 text-end" style="width: 10%">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(intent, index) in filteredIntents" :key="intent.id">
+                            <td class="px-3 fw-bold text-secondary">{{ index + 1 }}.</td>
+                            <td class="px-3 fw-bold text-secondary">{{ intent.id }}</td>
+
+                            <td class="px-3">
+                                <span class="fw-bold text-dark">{{ intent.intent_name }}</span>
+                            </td>
+
+                            <!-- Description: Scrollable -->
+                            <td class="px-3">
+                                <div class="table-scrollable-content text-secondary small">
+                                    {{ intent.description || '-' }}
+                                </div>
+                            </td>
+
+                            <!-- Department: Tag with wrap -->
+                            <td class="px-3">
+                                <span v-if="intent.department"
+                                      class="badge bg-purple bg-opacity-10 text-purple text-wrap text-start lh-sm d-inline-block"
+                                      style="max-width: 180px;">
+                                    {{ intent.department.name }}
+                                </span>
+                                <span v-else class="text-muted small">-</span>
+                            </td>
+
+                            <td class="px-3 text-end">
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-outline-primary" @click="openEditModal(intent)">
+                                        <i class="bi bi-pencil-fill"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" @click="deleteIntent(intent.id)">
+                                        <i class="bi bi-trash-fill"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 4. Native Modal -->
+    <div v-if="showModal" class="modal-backdrop fade show"></div>
+    <div v-if="showModal" class="modal fade show d-block" tabindex="-1" @click.self="closeModal">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="bi" :class="isEditMode ? 'bi-pencil-square' : 'bi-plus-circle'"></i>
+                        {{ isEditMode ? 'Edit Intent' : 'New Intent' }}
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @click="closeModal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form @submit.prevent="saveIntent">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Intent Name <span class="text-danger">*</span></label>
+                            <input type="text" v-model="form.intent_name" class="form-control" placeholder="e.g. WiFi Issues" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Description</label>
+                            <textarea v-model="form.description" class="form-control" rows="3" placeholder="Describe this intent..."></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Department</label>
+                            <select v-model="form.department_id" class="form-select">
+                                <option :value="null">None (Unassigned)</option>
+                                <option v-for="dept in departments" :key="dept.id" :value="dept.id">
+                                    {{ dept.name }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <div v-if="modalError" class="alert alert-danger py-2 small">{{ modalError }}</div>
+
+                        <div class="d-flex justify-content-end gap-2 mt-4">
+                            <button type="button" class="btn btn-light" @click="closeModal">Cancel</button>
+                            <button type="submit" class="btn btn-primary px-4" :disabled="isSaving">
+                                <span v-if="isSaving" class="spinner-border spinner-border-sm me-1"></span>
+                                {{ isEditMode ? 'Update' : 'Create' }}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
 </template>
 
 <script>
-import { ref, onMounted, computed } from 'vue';
+import { ref, reactive, onMounted, computed } from 'vue';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
-// Assuming useDataFetcher exposes a way to fetch intents and departments
 import { useDataFetcher } from '../../services/dataFetcher';
 import { useExcelImport } from '../../services/useExcelImport';
 
 export default {
     setup() {
-        const error = ref(null);
-        const loading = ref(true); // Added loading state
         const token = localStorage.getItem('sanctum_token');
-        const importFile = ref(null);
 
-        // Renamed FAQs to intents for clarity in this component
-        const {
-            intents,
-            departments,
-            getFAQs: originalGetFAQs, // Renamed to avoid confusion if it still exists
-            getIntents, // Keep this for fetching Intents
-            getDepartments
+        // Data Fetching
+        const { intents, departments, getIntents, getDepartments, loading } = useDataFetcher();
+        const { importFileRef, triggerImport, handleFileUpload } = useExcelImport();
 
-        }
-        = useDataFetcher();
-
-        const { isLoading, importFileRef, triggerImport, handleFileUpload } = useExcelImport();
-
-        const onFileChange = (event) => {
-            // 调用通用上传函数，传入: 事件对象, 类型字符串, 成功后的回调
-            handleFileUpload(event, 'intent', getIntents);
-        };
-
+        // Filters
         const searchTerm = ref('');
-        const selectedIntentId = ref(''); // Bound to the Intent dropdown
-        const selectedDepartmentId = ref(''); // Bound to the Department dropdown
+        const selectedIntentId = ref('');
+        const selectedDepartmentId = ref('');
 
-        // 🟢 NEW: Chained filtering logic in a single computed property
+        // Modal State
+        const showModal = ref(false);
+        const isEditMode = ref(false);
+        const isSaving = ref(false);
+        const modalError = ref('');
+        const currentId = ref(null);
+
+        // Form Data
+        const form = reactive({
+            intent_name: '',
+            description: '',
+            department_id: null
+        });
+
+        // Filter Logic
         const filteredIntents = computed(() => {
             let data = intents.value;
 
-            // A. Apply Text Search (Question, Answer, ID)
+            // Search Text
             if (searchTerm.value) {
-                const searchLower = searchTerm.value.toLowerCase();
-                data = data.filter(intent =>
-                    intent.intent_name?.toLowerCase().includes(searchLower) ||
-                    intent.id?.toString().includes(searchTerm.value)
+                const lower = searchTerm.value.toLowerCase();
+                data = data.filter(i =>
+                    i.intent_name?.toLowerCase().includes(lower) ||
+                    i.description?.toLowerCase().includes(lower) ||
+                    i.id?.toString().includes(searchTerm.value)
                 );
             }
 
-            // B. Apply Intent Filter
-            // Filter only if a specific Intent ID (number or null for unassigned) is selected
+            // Intent Filter (Dropdown)
             if (selectedIntentId.value !== '') {
-                 // Intent IDs are usually numbers, unless 'null' is passed for unassigned
-                const intentFilterValue = selectedIntentId.value === null ? null : parseInt(selectedIntentId.value);
-                data = data.filter(intent => intent.id === intentFilterValue);
+                const val = parseInt(selectedIntentId.value);
+                data = data.filter(i => i.id === val);
             }
 
-            // C. Apply Department Filter
-            // Filter only if a specific Department ID (number or null for unassigned) is selected
+            // Department Filter
             if (selectedDepartmentId.value !== '') {
-                // Department IDs are usually numbers, unless 'null' is passed for unassigned
-                const deptFilterValue = selectedDepartmentId.value === null ? null : parseInt(selectedDepartmentId.value);
-                data = data.filter(intent => intent.department_id === deptFilterValue);
+                const val = selectedDepartmentId.value === null ? null : parseInt(selectedDepartmentId.value);
+                data = data.filter(i => i.department_id === val);
             }
 
             return data;
         });
 
-        // --- Fetching Data on Mount ---
-        const fetchAllData = async () => {
-             loading.value = true;
-             try {
-                 await getIntents();
-                 await getDepartments(); // Fetch departments for dropdowns
-             } catch (err) {
-                 error.value = err;
-             } finally {
-                 loading.value = false;
-             }
+        // --- Modal Logic ---
+        const openCreateModal = async () => {
+            // Ensure departments are fresh when opening modal
+            if(departments.value.length === 0) await getDepartments();
+
+            isEditMode.value = false; currentId.value = null;
+            Object.assign(form, { intent_name: '', description: '', department_id: null });
+            modalError.value = ''; showModal.value = true;
         };
 
+        const openEditModal = async (item) => {
+            if(departments.value.length === 0) await getDepartments();
 
-        // --- Create Intent ---
-        const createIntent = async () => {
-            await getDepartments(); // Ensure departments are fresh
-
-            const deptOptions = departments.value.map(dept => `<option value="${dept.id}">${dept.name}</option>`).join('');
-
-            const { value: formValues } = await Swal.fire({
-                title: 'Create New Intent',
-                html:
-                                `<div class="swal2-input-group">
-                                    <label for="intent_name">Intent Name</label>
-                                    <input id="intent_name" class="swal2-input" placeholder="intent name">
-                                </div>
-                                <div class="swal2-input-group">
-                                    <label for="department">Department</label>
-                                    <select id="department" class="swal2-input" style="margin-left: 40px;">
-                                        <option value="">None</option>
-                                        ${deptOptions}
-                                    </select>
-                                </div>`,
-                focusConfirm: false,
-                showCancelButton: true,
-                cancelButtonText: 'Cancel',
-                customClass: { container: 'swal2-custom-wide'},
-
-                preConfirm: () => {
-                    const intentName = document.getElementById('intent_name').value;
-                    const departmentId = document.getElementById('department').value;
-                    if (!intentName) {
-                        Swal.showValidationMessage('Intent Name is required');
-                        return false;
-                    }
-                    return {
-                        intent_name: intentName,
-                        department_id: departmentId || null, // Use null if 'None' is selected
-                    };
-                }
+            isEditMode.value = true; currentId.value = item.id;
+            Object.assign(form, {
+                intent_name: item.intent_name,
+                description: item.description,
+                department_id: item.department_id
             });
-
-            if (formValues) {
-                if(token){
-                    try {
-                        // API endpoint updated for creating Intents
-                        await axios.post('/api/createIntents', formValues, {
-                            headers: { Authorization: `Bearer ${token}` }
-                        });
-                        await getIntents(); // Refresh list
-                        Swal.fire('Created!', 'New Intent has been created.', 'success');
-                    } catch (err) {
-                        Swal.fire('Error', err.response?.data?.message || 'Could not create Intent', 'error');
-                    }
-                }
-            }
+            modalError.value = ''; showModal.value = true;
         };
 
-        // --- Edit Intent ---
-        const editIntent = async (intent) => {
-            await getDepartments(); // Ensure departments are fresh
+        const closeModal = () => showModal.value = false;
 
-            const deptOptions = departments.value.map(dept => `
-                <option value="${dept.id}" ${dept.id === intent.department_id ? 'selected' : ''}>${dept.name}</option>
-            `).join('');
-
-            const { value: formValues } = await Swal.fire({
-                title: 'Edit Intent',
-                html:
-                                `<div class="swal2-input-group">
-                                    <label for="intent_name">Intent Name</label>
-                                    <input id="intent_name" class="swal2-input" placeholder="Intent Name" value="${intent.intent_name}">
-                                </div>
-                                <div class="swal2-input-group">
-                                    <label for="department">Department</label>
-                                    <select id="department" class="swal2-input" style="margin-left: 40px;">
-                                        <option value="">None (Optional)</option>
-                                        ${deptOptions}
-                                    </select>
-                                </div>`,
-                focusConfirm: false,
-                showCancelButton: true,
-                cancelButtonText: 'Cancel',
-                customClass: { container: 'swal2-custom-wide'},
-
-                preConfirm: () => {
-                    const intentName = document.getElementById('intent_name').value;
-                    const departmentId = document.getElementById('department').value;
-                    if (!intentName) {
-                        Swal.showValidationMessage('Intent Name is required');
-                        return false;
-                    }
-                    return {
-                        intent_name: intentName,
-                        department_id: departmentId || null, // Use null if 'None' is selected
-                    };
-                }
-            });
-
-            if (formValues) {
-                if(token){
-                    try {
-                        // API endpoint updated for updating Intents
-                        await axios.put(`/api/updateIntents/${intent.id}`, formValues, {
-                            headers: { Authorization: `Bearer ${token}` }
-                        });
-                        await getIntents(); // Refresh list
-                        Swal.fire('Updated!', 'Intent details have been updated.', 'success');
-                    } catch (err) {
-                        Swal.fire('Error', err.response?.data?.message || 'Could not update Intent', 'error');
-                    }
-                }
-            }
-        };
-
-        // --- Delete Intent ---
-        const deleteIntent = async (id) => {
-            const result = await Swal.fire({
-                title: 'Warning!',
-                text: 'Do you want to continue? This will permanently delete the intent.',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonText: 'Yes, delete it!',
-                cancelButtonText: 'Cancel',
-                confirmButtonColor: '#d33',
-                cancelButtonColor: '#3085d6',
-            });
-
-            if (result.isConfirmed) {
-                if(token){
-                    try {
-                        // API endpoint updated for deleting Intents
-                        await axios.delete(`/api/deleteIntents/${id}`, {
-                            headers: { Authorization: `Bearer ${token}` }
-                        });
-                        await getIntents(); // Refresh list
-                        Swal.fire('Deleted!', 'Intent has been deleted.', 'success');
-                    } catch (err) {
-                        Swal.fire('Error', err.response?.data?.message || 'Could not delete Intent', 'error');
-                    }
-                }
-            }
-        };
-
-        // --- EXPORT to Excel ---
-        const exportIntents = () => {
-            if (!intents.value.length) {
-                Swal.fire('No Data', 'There is no Intent data to export.', 'info');
-                return;
-            }
+        // --- CRUD ---
+        const saveIntent = async () => {
+            if (!token) return;
+            isSaving.value = true; modalError.value = '';
 
             try {
-                // Map data to include department name for clarity in export
-                const exportData = intents.value.map(intent => ({
-                    ID: intent.id,
-                    Intent_Name: intent.intent_name,
-                    Department: intent.department ? intent.department.name : 'None',
-                }));
-
-                // Convert JSON to worksheet
-                const worksheet = XLSX.utils.json_to_sheet(exportData);
-                const workbook = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(workbook, worksheet, 'Intents');
-
-                // Generate and save file
-                const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-                const blob = new Blob([excelBuffer], {
-                    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-                });
-                saveAs(blob, 'Intents.xlsx');
-                //Swal.fire('Exported!', 'Intent data successfully exported.', 'success');
-            } catch (error) {
-                console.error('Export Error:', error);
-                Swal.fire('Error', 'Failed to export Intents', 'error');
+                if (isEditMode.value) {
+                    await axios.put(`/api/updateIntents/${currentId.value}`, form, { headers: { Authorization: `Bearer ${token}` } });
+                    Swal.fire('Updated', 'Intent updated successfully.', 'success');
+                } else {
+                    await axios.post('/api/createIntents', form, { headers: { Authorization: `Bearer ${token}` } });
+                    Swal.fire('Created', 'New Intent created.', 'success');
+                }
+                await getIntents();
+                closeModal();
+            } catch (err) {
+                modalError.value = err.response?.data?.message || 'Operation failed.';
+            } finally {
+                isSaving.value = false;
             }
         };
 
+        const deleteIntent = async (id) => {
+            const res = await Swal.fire({
+                title: 'Are you sure?',
+                text: "Deleting an intent might affect FAQs linked to it.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'Yes, delete it!'
+            });
+
+            if (res.isConfirmed && token) {
+                try {
+                    await axios.delete(`/api/deleteIntents/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+                    await getIntents();
+                    Swal.fire('Deleted!', 'Intent has been deleted.', 'success');
+                } catch (err) {
+                    Swal.fire('Error', 'Delete failed.', 'error');
+                }
+            }
+        };
+
+        // --- Import / Export ---
+        const onImportFileChange = (event) => {
+            handleFileUpload(event, 'intent', getIntents);
+        };
+
+        const exportIntents = () => {
+            if (!intents.value.length) return Swal.fire('Info', 'No data', 'info');
+            try {
+                const data = intents.value.map(i => ({
+                    ID: i.id,
+                    Intent_Name: i.intent_name,
+                    Description: i.description,
+                    Department: i.department ? i.department.name : 'None'
+                }));
+                const ws = XLSX.utils.json_to_sheet(data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Intents');
+                saveAs(new Blob([XLSX.write(wb, { bookType: 'xlsx', type: 'array' })]), 'Intents.xlsx');
+            } catch (e) {
+                Swal.fire('Error', 'Export failed', 'error');
+            }
+        };
 
         onMounted(() => {
-            fetchAllData();
+            getIntents();
+            getDepartments();
         });
 
         return {
-            intents,
-            departments,
-            error,
-            loading,
-            importFileRef,
-            createIntent,
-            editIntent,
-            deleteIntent,
-            exportIntents,
-            triggerImport,
-            onFileChange,
-            importFile,
-            filteredIntents,
-            searchTerm,
-            selectedIntentId,
-            selectedDepartmentId,
+            intents, departments, filteredIntents, loading,
+            searchTerm, selectedIntentId, selectedDepartmentId,
+            showModal, isEditMode, isSaving, modalError, form,
+            openCreateModal, openEditModal, closeModal, saveIntent, deleteIntent,
+            importFileRef, triggerImport, onImportFileChange, exportIntents
         };
     }
 };
 </script>
 
+<style scoped>
+/* 样式复用自之前的页面，保持一致性 */
+.text-purple { color: #efecf6 !important; }
+.bg-purple { background-color: #6f42c1 !important; }
+.border-purple { border-color: #6f42c1 !important; }
 
-<style>
-/* Existing styles */
-    .swal2-custom-wide .swal2-popup {
-        width: 800px; /* Adjust this value to your desired width */
-        max-width: 90vw; /* Ensures it's still responsive on smaller screens */
-    }
+/* Modal 背景 */
+.modal-backdrop {
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1040;
+}
+.modal {
+    z-index: 1050;
+}
 
-    /* New styles to format the form with labels on the left */
-    .swal2-input-group {
-        display: flex;
-        align-items: center;
-        margin-bottom: 10px;
-    }
+/* 📱 手机端：描述滚动框 */
+.scrollable-content {
+    max-height: 120px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    font-size: 0.9rem;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid #dee2e6;
+}
 
-    .swal2-input-group label {
-        flex-basis: 120px; /* Adjust this to change the label width */
-        text-align: left;
-        margin-right: 15px;
-        font-weight: 500;
-    }
+/* 💻 电脑端：表格内描述滚动框 */
+.table-scrollable-content {
+    max-height: 100px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    padding-right: 5px;
+    scrollbar-width: thin;
+}
 
-    .swal2-input-group input, .swal2-input-group select {
-        flex-grow: 1; /* Makes the input/select field take up the remaining space */
-    }
+/* 滚动条美化 */
+.scrollable-content::-webkit-scrollbar,
+.table-scrollable-content::-webkit-scrollbar {
+    width: 4px;
+}
+.scrollable-content::-webkit-scrollbar-thumb,
+.table-scrollable-content::-webkit-scrollbar-thumb {
+    background-color: #adb5bd;
+    border-radius: 4px;
+}
 </style>

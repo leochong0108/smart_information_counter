@@ -18,8 +18,6 @@ const routes = [
   { path: '/chat', name: 'Chat', component: Chat },
   { path: '/login', name: 'Login', component: Login },
   { path: '/register', name: 'Register', component: Register },
-  // You might also need a register route if you create a component for it
-  // { path: '/register', name: 'Register', component: Register },
 
   // Protected routes that require authentication
   {

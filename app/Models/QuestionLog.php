@@ -31,6 +31,7 @@ class QuestionLog extends Model
         'faq_id',
         'help_requested',
         'admin_reply',
-        'replied_at'
+        'replied_at',
+        'remark',
     ];
 }

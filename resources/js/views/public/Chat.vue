@@ -1,93 +1,145 @@
 <template>
-    <div class="container-fluid d-flex flex-column justify-content-center align-items-center vh-100 position-relative">
+    <!-- 全局布局容器 -->
+    <div class="chat-layout">
 
-        <button @click="endChat" class="btn btn-secondary end-chat-btn position-absolute top-0 end-0 m-3">End Chat</button>
+        <!-- 1. 顶部固定区域 (Header) -->
+        <header class="chat-header d-flex justify-content-between align-items-center p-3">
+            <h5 class="m-0 fw-bold text-primary d-none d-md-block">Intelligent Campus Enquiry System</h5>
+            <h5 class="m-0 fw-bold text-primary d-md-none">Campus Enquiry</h5>
+            <button @click="endChat" class="btn btn-outline-danger btn-sm">
+                <i class="bi bi-box-arrow-right"></i> End Chat
+            </button>
+        </header>
 
-        <div v-if="messages.length === 0" class="initial-view text-center">
-            <h1 class="text-muted">Hi Welcome, Ask something you want to know about the Southern University College</h1>
-            <div class="container mt-5 faqs-container">
-                <div class="row g-2 justify-content-center">
-                    <div class="col-auto" v-for="top in FAQs" :key="top.id">
-                        <button @click="setInputAndSend(top.question)" class="btn btn-predefined">{{top.question}}</button>
+        <!-- 2. 中间滚动区域 (Main) -->
+        <main class="chat-main" ref="chatContainerRef">
+            <div class="responsive-container h-100 d-flex flex-column">
+
+                <!-- A. 初始欢迎界面 -->
+                <div v-if="messages.length === 0" class="welcome-view flex-grow-1 d-flex flex-column justify-content-center align-items-center text-center px-3">
+                    <div class="mb-4">
+                        <i class="bi bi-robot fs-1 text-primary bg-light p-3 rounded-circle shadow-sm"></i>
+                    </div>
+                    <h2 class="fw-bold mb-2">Hi, how can I help?</h2>
+                    <p class="text-muted mb-4">Ask me anything about Southern University College</p>
+
+                    <div class="d-flex flex-wrap justify-content-center gap-2">
+                        <button v-for="top in FAQs" :key="top.id"
+                                @click="setInputAndSend(top.question)"
+                                class="btn btn-light border rounded-pill px-3 py-2 text-start">
+                            {{ top.question }}
+                        </button>
                     </div>
                 </div>
+
+                <!-- B. 聊天消息列表 -->
+                <div v-else class="messages-list py-3 px-3">
+                    <div v-for="(m, idx) in messages" :key="idx" class="message-wrapper d-flex mb-3"
+                         :class="m.from === 'user' ? 'justify-content-end' : 'justify-content-start'">
+
+                        <div v-if="m.from === 'ai'" class="avatar me-2 align-self-start">
+                            <i class="bi bi-robot text-primary bg-light p-1 rounded-circle border"></i>
+                        </div>
+
+                        <div class="bubble p-3 shadow-sm"
+                             :class="m.from === 'user' ? 'user-bubble' : 'ai-bubble'">
+                            <div v-html="m.text"></div>
+
+                            <div v-if="m.from === 'ai' && m.isFailure && !m.waitingForHuman && !m.replied" class="mt-2 border-top pt-2">
+                                <button @click="requestHelp(idx, m.logId)" class="btn btn-warning btn-sm w-100 rounded-pill">
+                                    <i class="bi bi-person-raised-hand"></i> Request Staff
+                                </button>
+                            </div>
+                            <div v-if="m.waitingForHuman" class="mt-2 text-warning small fst-italic">
+                                <span class="spinner-grow spinner-grow-sm" role="status"></span> Waiting for staff...
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-if="isLoading" class="message-wrapper d-flex mb-3 justify-content-start">
+                        <div class="avatar me-2 align-self-start">
+                            <i class="bi bi-robot text-primary bg-light p-1 rounded-circle border"></i>
+                        </div>
+                        <div class="bubble ai-bubble p-3 loading-indicator">
+                            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                        </div>
+                    </div>
+
+                     <!-- 语音监听指示器 -->
+                    <div v-if="isListening" class="message-wrapper d-flex mb-3 justify-content-start">
+                         <div class="avatar me-2 align-self-start">
+                            <i class="bi bi-robot text-primary bg-light p-1 rounded-circle border"></i>
+                        </div>
+                        <div class="bubble ai-bubble p-3">
+                            <i class="bi bi-mic-fill text-danger animate-pulse"></i> Listening...
+                        </div>
+                    </div>
+                </div>
+
             </div>
-        </div>
+        </main>
 
-        <div v-else class="chat-container">
-            <div v-for="(m, idx) in messages" :key="idx" class="message d-flex" :class="m.from === 'user' ? 'justify-content-end' : 'justify-content-start'">
-                <div class="bubble p-2 m-1" :class="m.from === 'user' ? 'user-bubble' : 'ai-bubble'" v-html="m.text"></div>
+        <!-- 3. 底部固定输入区域 (Footer) -->
+        <footer class="chat-footer bg-white border-top pt-2 pb-3 px-3">
+            <div class="responsive-container">
 
-                <div v-if="m.from === 'ai' && m.isFailure && !m.waitingForHuman && !m.replied" class="ms-2">
-                    <button @click="requestHelp(idx, m.logId)" class="btn btn-warning btn-sm mt-1">
-                        <i class="bi bi-person-raised-hand"></i> Request Human Help
+                <div v-if="messages.length > 0 && visibleFAQs.length > 0" class="suggestion-chips d-flex gap-2 overflow-auto mb-2 pb-1">
+                    <button v-for="top in visibleFAQs" :key="top.id"
+                            @click="setInputAndSend(top.question)"
+                            class="btn btn-sm btn-outline-secondary rounded-pill text-nowrap">
+                        {{ top.question }}
                     </button>
                 </div>
 
-                <div v-if="m.waitingForHuman" class="ms-2 text-muted small">
-                    <span class="spinner-grow spinner-grow-sm text-warning" role="status"></span> Waiting for staff...
+                <div class="input-group input-group-lg shadow-sm rounded-pill overflow-hidden border">
+                    <button @click="startVoiceInput" class="btn btn-light border-end" :class="{'text-danger': isListening}" type="button">
+                        <i class="bi" :class="isListening ? 'bi-mic-fill' : 'bi-mic'"></i>
+                    </button>
+                    <input
+                        v-model="input"
+                        @keyup.enter="sendMessage"
+                        type="text"
+                        class="form-control border-0 bg-light"
+                        placeholder="Type a message..."
+                        :disabled="isListening || isLoading"
+                    >
+                    <button @click="sendMessage" class="btn btn-primary px-4" :disabled="isLoading || !input.trim()">
+                        <i class="bi bi-send-fill"></i>
+                    </button>
+                </div>
+                <div class="text-center mt-2">
+                    <small class="text-muted footer-note">Intelligent Campus Enquiry System.</small>
                 </div>
             </div>
+        </footer>
 
-            <div v-if="isLoading" class="d-flex justify-content-start message">
-                <div class="bubble p-2 m-1 ai-bubble loading-indicator">
-                    <span class="dot">.</span><span class="dot">.</span><span class="dot">.</span>
+        <!-- Modal -->
+        <div v-if="showModal" class="modal-backdrop-custom d-flex justify-content-center align-items-center">
+            <div class="modal-card bg-white p-4 rounded shadow-lg text-center mx-3">
+                <div class="mb-3 text-warning">
+                    <i class="bi bi-exclamation-circle fs-1"></i>
                 </div>
-            </div>
-            <div v-if="isListening" class="d-flex justify-content-start message">
-                <div class="bubble p-2 m-1 ai-bubble listening-indicator">Listening...</div>
-            </div>
-        </div>
+                <h5 class="mb-3" v-if="isEndChatConfirmation">End this session?</h5>
+                <h5 class="mb-3" v-else>Are you still there?</h5>
 
-        <div v-if="messages.length > 0" class="container mt-3 mb-3 faqs-container chat-faqs">
-            <div class="row g-2 justify-content-center">
-                <div class="col-auto" v-for="top in visibleFAQs" :key="top.id">
-                    <button @click="setInputAndSend(top.question)" class="btn btn-predefined btn-sm">{{top.question}}</button>
-                </div>
-            </div>
-        </div>
+                <p class="text-muted" v-if="!isEndChatConfirmation">Redirecting in {{ countdown }} seconds.</p>
 
-        <div class="input-box d-flex">
-            <button
-                @click="startVoiceInput"
-                class="btn me-2 voice-btn"
-                :class="isListening ? 'btn-danger' : 'btn-predefined'"
-                :disabled="isLoading"
-            >
-                <i class="bi bi-mic"></i>
-                <span class="d-none d-md-inline">{{ isListening ? 'Stop Listening' : 'Voice Input' }}</span>
-                <span class="d-inline d-md-none">{{ isListening ? 'Stop' : 'Voice' }}</span>
-            </button>
-            <input v-model="input" @keyup.enter="sendMessage" class="form-control me-2" placeholder="Ask here" :disabled="isListening || isLoading" />
-            <button @click="sendMessage" class="btn btn-primary" :disabled="isLoading || isListening">Send</button>
-        </div>
-
-        <div v-if="showModal" class="modal-overlay">
-            <div class="custom-modal">
-                <div class="modal-content">
-                    <p v-if="isEndChatConfirmation">Are you sure you want to end this chat session?</p>
-                    <p v-else>Are you still there? You will be redirected to the home page in {{ countdown }} seconds.</p>
-                    <div class="d-flex justify-content-center">
-                        <button @click="continueChat" class="btn me-2" :class="isEndChatConfirmation ? 'btn-primary' : 'btn-primary'">
-                            {{ isEndChatConfirmation ? 'No, stay in chat' : 'Yes, continue' }}
-                        </button>
-                        <button @click="endChatImmediate" class="btn btn-secondary">
-                            {{ isEndChatConfirmation ? 'Yes, end chat' : 'No, end chat' }}
-                        </button>
-                    </div>
+                <div class="d-flex justify-content-center gap-2 mt-4">
+                    <button @click="continueChat" class="btn btn-outline-secondary px-4">Cancel</button>
+                    <button @click="endChatImmediate" class="btn btn-danger px-4">End Chat</button>
                 </div>
             </div>
         </div>
+
     </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from "vue";
-import { sendMessageToAI } from "../../services/api";
+import { ref, onMounted, onUnmounted, computed, nextTick } from "vue";
 import { useRouter } from 'vue-router';
 import axios from 'axios';
-// import Faqs from "../private/faqs.vue"; // Removed as it seems unused
 
+// --- State ---
 const messages = ref([]);
 const input = ref("");
 const isLoading = ref(false);
@@ -96,458 +148,336 @@ const countdown = ref(10);
 const router = useRouter();
 const FAQs = ref([]);
 const token = localStorage.getItem('sanctum_token');
-const error = ref(null);
 const pollingInterval = ref(null);
-// --- Voice Input State and Variables ---
 const isListening = ref(false);
 let recognition = null;
-// --- New Confirmation State ---
 const isEndChatConfirmation = ref(false);
 let idleTimer;
 let modalCountdownTimer;
+const chatContainerRef = ref(null);
 
-    // 1. 新增：请求人工协助
-    const requestHelp = async (index, logId) => {
+// --- Computed ---
+const visibleFAQs = computed(() => FAQs.value.slice(0, 3));
+
+// --- API & Logic ---
+const getTop10FAQs = async () => {
         try {
-            // 调用 API
-            await axios.post('/api/request-help', { log_id: logId });
-
-            // 更新 UI：标记这条消息为等待中
-            messages.value[index].waitingForHuman = true;
-
-            // 添加一条系统提示
-            messages.value.push({
-                from: 'ai',
-                text: '<i>🔔 Request sent! Please wait for a staff member to reply on this screen.</i>'
+            const response = await axios.get('/api/top10ForChat', {
+                headers: { Authorization: `Bearer ${token}` }
             });
+            FAQs.value = response.data;
+        } catch (err) {
+            console.error('Error fetching FAQs', err);
+    }
+};
 
-            // 开始轮询
-            startPolling(logId);
+const scrollToBottom = async () => {
+    await nextTick();
+    if (chatContainerRef.value) {
+        chatContainerRef.value.scrollTop = chatContainerRef.value.scrollHeight;
+    }
+};
 
-        } catch (e) {
-            alert("Failed to request help.");
-        }
-    };
+const sendMessage = async () => {
+    resetIdleTimer();
+    if (!input.value.trim()) return;
 
-    // 2. 新增：轮询逻辑
-    const startPolling = (logId) => {
-        if (pollingInterval.value) clearInterval(pollingInterval.value);
+    messages.value.push({ from: "user", text: input.value });
+    const userMessage = input.value;
+    input.value = "";
+    isLoading.value = true;
+    scrollToBottom();
 
-        pollingInterval.value = setInterval(async () => {
-            try {
-                const res = await axios.post('/api/check-reply', { log_id: logId });
+    try {
+        const response = await axios.post('/api/chat',
+            { message: userMessage },
+            { headers: { Authorization: `Bearer ${token}` }}
+        );
 
-                if (res.data.replied) {
-                    // 管理员回复了！
-                    clearInterval(pollingInterval.value); // 停止轮询
+        const data = response.data;
 
-                    // 🔥🔥🔥 新增关键代码开始 🔥🔥🔥
-                // 2. 找到发起请求的那条消息，并关闭等待状态
-                    const originalMessage = messages.value.find(m => m.logId === logId);
-                    if (originalMessage) {
-                        originalMessage.waitingForHuman = false; // 这会让 "Waiting for staff..." 消失
-                        originalMessage.replied = true;          // 这会确保 "Request Help" 按钮不再出现
-                    }
+        messages.value.push({
+            from: "ai",
+            text: data.reply,
+            isFailure: data.status === false,
+            logId: data.log_id,
+            waitingForHuman: false,
+            replied: false
+        });
+    } catch (error) {
+        messages.value.push({ from: "ai", text: "Sorry, network error occurred." });
+    } finally {
+        isLoading.value = false;
+        scrollToBottom();
+    }
+};
 
-                    messages.value.push({
-                        from: 'ai', // 或者 'admin' 如果你有这个样式
-                        text: `👨‍💼 <strong>Staff Reply:</strong> ${res.data.reply}`
-                    });
+const setInputAndSend = (question) => {
+    input.value = question;
+    sendMessage();
+};
 
-                    // 滚动到底部
-                    setTimeout(() => {
-                        const chatContainer = document.querySelector('.chat-container');
-                        if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
-                    }, 100);
+const requestHelp = async (index, logId) => {
+    try {
+        await axios.post('/api/request-help', { log_id: logId });
+        messages.value[index].waitingForHuman = true;
+        messages.value.push({ from: 'ai', text: '<i>Request sent! Please wait...</i>' });
+        scrollToBottom();
+        startPolling(logId);
+    } catch (e) {
+        alert("Failed to request help.");
+    }
+};
+
+const startPolling = (logId) => {
+    if (pollingInterval.value) clearInterval(pollingInterval.value);
+    pollingInterval.value = setInterval(async () => {
+        try {
+            const res = await axios.post('/api/check-reply', { log_id: logId });
+            if (res.data.replied) {
+                clearInterval(pollingInterval.value);
+                const originalMessage = messages.value.find(m => m.logId === logId);
+                if (originalMessage) {
+                    originalMessage.waitingForHuman = false;
+                    originalMessage.replied = true;
                 }
-            } catch (e) {
-                console.error("Polling error");
+                messages.value.push({ from: 'ai', text: `👨‍💼 <strong>Staff Reply:</strong> ${res.data.reply}` });
+                scrollToBottom();
             }
-        }, 3000); // 每 3 秒检查一次
-    };
+        } catch (e) { console.error("Polling error"); }
+    }, 3000);
+};
 
-    // Computed property to display only the top 3 FAQs after chat starts
-    const visibleFAQs = computed(() => {
-        // Return the first 3 FAQs from the full list
-        return FAQs.value.slice(0, 3);
-    });
-
-
-    const getTop10FAQs = async () => {
-        if (token) {
-            try {
-                // Updated API endpoint is assumed to be correct
-                const response = await axios.get('/api/top10ForChat', {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                FAQs.value = response.data;
-                console.log(FAQs.value);
-            } catch (err) {
-                error.value = err.response?.data?.message || 'Error fetching top 10 FAQs';
-            }
-        }
-    };
-
-    const resetIdleTimer = () => {
-        // Only reset if we are not currently confirming the end chat action
-        if (isEndChatConfirmation.value) return;
-
-        clearTimeout(idleTimer);
-        clearTimeout(modalCountdownTimer);
-        showModal.value = false;
-        idleTimer = setTimeout(showModalAndCountdown, 90000); // set idle time here (90 seconds)
-    };
-
-    const showModalAndCountdown = () => {
-        // Ensure we aren't showing the confirmation modal first
-        if (isEndChatConfirmation.value) return;
-
+// --- Idle & End Logic ---
+const resetIdleTimer = () => {
+    if (isEndChatConfirmation.value) return;
+    clearTimeout(idleTimer);
+    clearTimeout(modalCountdownTimer);
+    showModal.value = false;
+    idleTimer = setTimeout(() => {
         showModal.value = true;
         countdown.value = 10;
         modalCountdownTimer = setInterval(() => {
             countdown.value--;
-            if (countdown.value <= 0) {
-                clearInterval(modalCountdownTimer);
-                endChatImmediate(); // Use immediate end for consistency
-            }
+            if (countdown.value <= 0) endChatImmediate();
         }, 1000);
+    }, 90000);
+};
+
+const endChat = () => {
+    isEndChatConfirmation.value = true;
+    showModal.value = true;
+    clearTimeout(idleTimer);
+};
+
+const continueChat = () => {
+    showModal.value = false;
+    clearInterval(modalCountdownTimer);
+    isEndChatConfirmation.value = false;
+    resetIdleTimer();
+};
+
+const endChatImmediate = () => {
+    if (pollingInterval.value) clearInterval(pollingInterval.value);
+    router.push('/');
+};
+
+// --- Voice Input with Error Handling ---
+const setupSpeechRecognition = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        console.warn("Speech Recognition API not supported in this browser.");
+        return;
+    }
+
+    recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.continuous = false; // 通常设为 false 体验更好，说完一句话自动停止
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+        isListening.value = true;
     };
 
-    const continueChat = () => {
-        showModal.value = false;
-        clearInterval(modalCountdownTimer);
-        isEndChatConfirmation.value = false; // Reset flag
-        resetIdleTimer();
+    recognition.onend = () => {
+        isListening.value = false;
+        // 如果有内容，自动发送（可选）
+        // if (input.value) sendMessage();
     };
 
-    const endChatImmediate = () => {
-        if (pollingInterval.value) clearInterval(pollingInterval.value);
-        showModal.value = false;
-        clearInterval(modalCountdownTimer);
-        isEndChatConfirmation.value = false; // Reset flag
-        messages.value = [];
-        router.push('/');
+    recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        input.value = transcript;
     };
 
-    const sendMessage = async () => {
-        resetIdleTimer();
-        if (!input.value.trim()) return;
-
-        messages.value.push({ from: "user", text: input.value });
-        const userMessage = input.value;
-        input.value = "";
-        isLoading.value = true;
-
-        try {
-            // 🔥 修改: 直接使用 axios 获取完整响应，而不是 sendMessageToAI
-            // 这样我们才能拿到 status 和 log_id
-            const response = await axios.post('/api/chat',
-                { message: userMessage },
-                { headers: { Authorization: `Bearer ${token}` }}
-            );
-
-            const data = response.data; // 这里面包含了 { reply: "...", log_id: 1, status: false }
-
-            messages.value.push({
-                from: "ai",
-                text: data.reply, // 对应后端的 'reply'
-                isFailure: data.status === false, // 🔥 关键：检查后端返回的 status
-                logId: data.log_id,               // 🔥 关键：保存 log_id
-                waitingForHuman: false,
-                replied: false
-            });
-
-        } catch (error) {
-            console.error("Failed to get AI reply:", error);
-            messages.value.push({ from: "ai", text: "Sorry, I am unable to respond at this time." });
-        } finally {
-            isLoading.value = false;
-            setTimeout(() => {
-                const chatContainer = document.querySelector('.chat-container');
-                if (chatContainer) {
-                    chatContainer.scrollTop = chatContainer.scrollHeight;
-                }
-            }, 100);
+    // 🔥 新增：错误处理，告诉你是不是 HTTPS 问题
+    recognition.onerror = (event) => {
+        isListening.value = false;
+        console.error("Speech Recognition Error:", event.error);
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+            alert("Microphone access blocked! \n\nReason: You are likely using HTTP. \nPlease use HTTPS or enable 'Insecure origins treated as secure' in browser flags.");
         }
     };
+};
 
-    const setInputAndSend = (question) => {
-        resetIdleTimer();
-        input.value = question;
-        // Call sendMessage() immediately after setting the input
-        sendMessage();
-    };
+const startVoiceInput = () => {
+    if (!recognition) {
+        alert("Your browser does not support voice input.");
+        return;
+    }
+    if (isListening.value) recognition.stop();
+    else {
+        input.value = ""; // 清空输入框准备听写
+        recognition.start();
+    }
+};
 
-    const endChat = () => {
-        // Show confirmation modal instead of immediate end
-        isEndChatConfirmation.value = true;
-        showModal.value = true;
-        // Stop any running idle countdown immediately
-        clearInterval(modalCountdownTimer);
-        clearTimeout(idleTimer);
-    };
+onMounted(() => {
+    getTop10FAQs();
+    resetIdleTimer();
+    setupSpeechRecognition();
+});
 
-    // --- Voice Input Implementation (kept as-is for functionality) ---
-    const setupSpeechRecognition = () => {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-        if (!SpeechRecognition) {
-            console.warn("Speech Recognition not supported in this browser.");
-            return;
-        }
-
-        recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = 'en-US';
-
-        recognition.onstart = () => {
-            isListening.value = true;
-            console.log('Voice recognition started.');
-        };
-
-        recognition.onresult = (event) => {
-            let finalTranscript = '';
-            let interimTranscript = '';
-
-            for (let i = event.resultIndex; i < event.results.length; i++) {
-                const transcript = event.results[i][0].transcript;
-                if (event.results[i].isFinal) {
-                    finalTranscript += transcript;
-                } else {
-                    interimTranscript += transcript;
-                }
-            }
-
-            input.value = finalTranscript + interimTranscript;
-
-            if (finalTranscript) {
-                recognition.stop();
-            }
-        };
-
-        recognition.onerror = (event) => {
-            console.error('Speech recognition error:', event.error);
-            isListening.value = false;
-        };
-
-        recognition.onend = () => {
-            isListening.value = false;
-            console.log('Voice recognition ended.');
-        };
-    };
-
-    const startVoiceInput = () => {
-        if (!recognition) return;
-
-        if (isListening.value) {
-            recognition.stop();
-        } else {
-            input.value = "";
-            recognition.start();
-        }
-    };
-// ------------------------------------
-
-    onMounted(() => {
-        setupSpeechRecognition();
-        resetIdleTimer();
-        getTop10FAQs();
-    });
-
-    onUnmounted(() => {
-        if (pollingInterval.value) clearInterval(pollingInterval.value);
-        clearTimeout(idleTimer);
-        clearInterval(modalCountdownTimer);
-        if (recognition && isListening.value) {
-            recognition.stop();
-        }
-    });
-
+onUnmounted(() => {
+    clearTimeout(idleTimer);
+    clearInterval(modalCountdownTimer);
+    if (pollingInterval.value) clearInterval(pollingInterval.value);
+    if (recognition) recognition.abort();
+});
 </script>
 
 <style scoped>
-/* Existing styles */
-.initial-view {
+/* 1. 全局布局 */
+.chat-layout {
+    height: 100dvh;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    min-height: 50vh;
+    background-color: #f8f9fa;
+    position: relative;
+    overflow: hidden;
 }
-.chat-container {
-    width: 70%; /* Desktop width */
-    max-width: 800px;
-    min-height: 50vh; /* Increased min-height for better flow */
-    max-height: 70vh; /* Max height to allow scrolling */
-    padding: 10px; /* Add padding */
-    margin-bottom: 10px;
-    overflow-y: auto;
-    /* Ensure chat container scrolls to the bottom for new messages */
-    display: flex;
-    flex-direction: column;
-}
-.message {
-    /* To ensure bubbles are pushed to start/end correctly */
+
+/* 2. 响应式容器 */
+.responsive-container {
     width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+    position: relative;
 }
+
+/* 3. Header */
+.chat-header {
+    background: #fff;
+    border-bottom: 1px solid #e9ecef;
+    flex-shrink: 0;
+    z-index: 10;
+}
+
+/* 4. Main Scroll Area */
+.chat-main {
+    flex-grow: 1;
+    overflow-y: auto;
+    scroll-behavior: smooth;
+    scrollbar-width: thin;
+}
+.chat-main::-webkit-scrollbar {
+    width: 6px;
+}
+.chat-main::-webkit-scrollbar-thumb {
+    background-color: #ccc;
+    border-radius: 3px;
+}
+
+/* 5. Footer */
+.chat-footer {
+    flex-shrink: 0;
+    z-index: 10;
+}
+.footer-note {
+    font-size: 0.75rem;
+}
+
+/* 6. Bubbles */
 .bubble {
-    max-width: 85%; /* Limit bubble width */
-    word-wrap: break-word; /* Ensure long words wrap */
-    /* Add smooth transition for better visual feedback */
-    transition: all 0.2s ease-in-out;
+    max-width: 85%;
+    border-radius: 1.2rem;
+    font-size: 1rem;
+    line-height: 1.5;
+    word-wrap: break-word;
 }
+
 .user-bubble {
-    background-color: #5d5d81;
-    color: white;
-    border-radius: 1.5rem 1.5rem 0.5rem 1.5rem;
+    background-color: #e3f2fd;
+    color: #0d47a1;
+    border-bottom-right-radius: 0.2rem;
 }
+
 .ai-bubble {
-    background-color: #eaeaf2;
-    color: black;
-    border-radius: 1.5rem 1.5rem 1.5rem 0.5rem;
-}
-.btn-predefined {
-    background-color: #eaeaf2;
-    color: black;
-    border-radius: 2rem;
-    padding: 0.5rem 1rem;
-    border: none;
-    white-space: nowrap; /* Prevent buttons from breaking across lines too early */
-}
-.btn-predefined:hover {
-    background-color: #dcdce6;
-}
-.input-box {
-    margin-top: 1rem;
-    width: 50%; /* Desktop width */
-    max-width: 800px;
-}
-.end-chat-btn {
-    z-index: 1000;
+    background-color: #ffffff;
+    color: #212529;
+    border: 1px solid #e9ecef;
+    border-bottom-left-radius: 0.2rem;
 }
 
-/* New style for the 3 FAQ row above the input */
-.chat-faqs {
-    width: 70%;
-    max-width: 800px;
-    padding: 0 10px;
+.suggestion-chips {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
 }
-.chat-faqs .btn-sm {
-    padding: 0.3rem 0.6rem;
-    font-size: 0.85rem;
+.suggestion-chips::-webkit-scrollbar {
+    display: none;
 }
 
-/* Modal styles (kept as-is) */
-.modal-overlay {
-    position: fixed;
+/* Modal */
+.modal-backdrop-custom {
+    position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    background: rgba(0, 0, 0, 0.5);
     z-index: 2000;
 }
-
-.custom-modal {
-    background: white;
-    padding: 2rem;
-    border-radius: 10px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    text-align: center;
+.modal-card {
+    width: 100%;
+    max-width: 400px;
 }
 
-.modal-content p {
-    font-size: 1.1rem;
-    margin-bottom: 1.5rem;
-}
-
-/* Voice input styles */
-.listening-indicator {
-    font-style: italic;
-    opacity: 0.7;
-}
-
-/* Loading dots animation */
+/* Loading */
 .loading-indicator .dot {
-    opacity: 0;
-    animation: loading-dot-flash 1.4s infinite alternate;
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: #888;
+    margin: 0 2px;
+    animation: bounce 1.4s infinite ease-in-out both;
 }
-.loading-indicator .dot:nth-child(2) {
-    animation-delay: 0.2s;
-}
-.loading-indicator .dot:nth-child(3) {
-    animation-delay: 0.4s;
-}
-@keyframes loading-dot-flash {
-    0% { opacity: 0.2; }
-    50% { opacity: 1; }
-    100% { opacity: 0.2; }
+.loading-indicator .dot:nth-child(1) { animation-delay: -0.32s; }
+.loading-indicator .dot:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes bounce {
+    0%, 80%, 100% { transform: scale(0); }
+    40% { transform: scale(1); }
 }
 
-/* --- Mobile Responsiveness (Media Queries) --- */
-
-@media (max-width: 992px) {
-    /* For Tablets and smaller desktops */
-    .chat-container {
-        width: 85%;
-        min-height: 60vh;
-        max-height: 80vh;
-    }
-    .input-box {
-        width: 85%;
-    }
-    .chat-faqs {
-        width: 85%;
-    }
-    .voice-btn span {
-        /* Hide text on tablets for more compact button */
-        display: none !important;
-    }
-    .voice-btn i {
-        /* Ensure icon is visible */
-        display: inline !important;
-    }
-    .btn-predefined {
-        padding: 0.4rem 0.8rem;
-        font-size: 0.9rem;
-    }
+.animate-pulse {
+    animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .5; }
 }
 
 @media (max-width: 576px) {
-    /* For Mobile Phones */
-    .chat-container {
-        width: 95%;
-        min-height: 70vh;
+    .bubble {
+        max-width: 92%;
     }
-    .input-box {
-        width: 95%;
-        /* Adjust layout for better use of space */
-        flex-wrap: nowrap;
+    .chat-header, .chat-footer {
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
     }
-    .chat-faqs {
-        width: 95%;
-    }
-    h1 {
+    .welcome-view h2 {
         font-size: 1.5rem;
-    }
-    .btn-predefined {
-        padding: 0.3rem 0.5rem;
-        font-size: 0.8rem;
-    }
-    .chat-faqs .btn-sm {
-        font-size: 0.75rem;
-    }
-    .voice-btn span {
-        /* Hide text on mobile for small button */
-        display: none !important;
-    }
-    .voice-btn i {
-        /* Ensure icon is visible */
-        display: inline !important;
     }
 }
 </style>
