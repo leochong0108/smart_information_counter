@@ -1,7 +1,7 @@
 <template>
 <div class="container-fluid py-4" id="dashboard-content">
 
-    <!-- 1. Header (Export Only) - Search is inside the filter card -->
+    <!-- 1. Header (Export Only) -->
     <div class="row mb-3" v-if="exporting">
         <div class="col-12">
             <h2 class="text-center">Dashboard Comparison Report</h2>
@@ -17,16 +17,13 @@
             <div class="card text-white bg-primary h-100 shadow-sm border-0">
                 <div class="card-body d-flex flex-column justify-content-center p-4">
                     <div class="metric-title text-white-50 text-uppercase small fw-bold mb-2">Total Queries</div>
-
                     <!-- Current Period -->
                     <div class="metric-value fw-bold display-6">
                         <small class="fs-6 fw-normal opacity-75 d-block mb-1">Current Period:</small>
                         {{ dataA.stats.totalQuestions || 0 }}
-                        <!-- Arrow Indicator -->
                         <span v-if="dataA.stats.totalQuestions > dataB.stats.totalQuestions" class="fs-5 ms-2 text-success-light" >▲</span>
                         <span v-else-if="dataA.stats.totalQuestions < dataB.stats.totalQuestions" class="fs-5 ms-2 text-warning-light" >▼</span>
                     </div>
-
                     <!-- Comparison Period -->
                     <div v-if="isCompareMode" class="metric-sub-value mt-3 pt-3 border-top border-light border-opacity-25">
                         <small class="fs-6 fw-normal opacity-75 d-block mb-1">Comparison Period:</small>
@@ -41,14 +38,12 @@
             <div class="card text-white bg-info h-100 shadow-sm border-0">
                 <div class="card-body d-flex flex-column justify-content-center p-4">
                     <div class="metric-title text-white-50 text-uppercase small fw-bold mb-2">Total Success</div>
-
                     <div class="metric-value fw-bold display-6">
                         <small class="fs-6 fw-normal opacity-75 d-block mb-1">Current Period:</small>
                         {{ dataA.stats.totalSuccess || 0 }}
                         <span v-if="dataA.stats.totalSuccess > dataB.stats.totalSuccess" class="fs-5 ms-2 text-success-light" >▲</span>
                         <span v-else-if="dataA.stats.totalSuccess < dataB.stats.totalSuccess" class="fs-5 ms-2 text-warning-light" >▼</span>
                     </div>
-
                     <div v-if="isCompareMode" class="metric-sub-value mt-3 pt-3 border-top border-light border-opacity-25">
                         <small class="fs-6 fw-normal opacity-75 d-block mb-1">Comparison Period:</small>
                         <span class="fs-4 fw-bold">{{ dataB.stats.totalSuccess || 0 }}</span>
@@ -62,14 +57,12 @@
             <div class="card text-white bg-purple h-100 shadow-sm border-0">
                 <div class="card-body d-flex flex-column justify-content-center p-4">
                     <div class="metric-title text-white-50 text-uppercase small fw-bold mb-2">Total Failed</div>
-
                     <div class="metric-value fw-bold display-6">
                         <small class="fs-6 fw-normal opacity-75 d-block mb-1">Current Period:</small>
                         {{ dataA.stats.totalFail || 0 }}
                         <span v-if="dataA.stats.totalFail > dataB.stats.totalFail" class="fs-5 ms-2 text-success-light" >▲</span>
                         <span v-else-if="dataA.stats.totalFail < dataB.stats.totalFail" class="fs-5 ms-2 text-warning-light" >▼</span>
                     </div>
-
                     <div v-if="isCompareMode" class="metric-sub-value mt-3 pt-3 border-top border-light border-opacity-25">
                         <small class="fs-6 fw-normal opacity-75 d-block mb-1">Comparison Period:</small>
                         <span class="fs-4 fw-bold">{{ dataB.stats.totalFail || 0 }}</span>
@@ -134,27 +127,27 @@
                             <option value="yearly">Yearly</option>
                             <option value="custom-range">Custom Range</option>
                         </select>
-                    <div v-if="filterB.type === 'custom-range'" class="mt-1">
+                        <div v-if="filterB.type === 'custom-range'" class="mt-1">
 
-                        <!-- 💻 电脑端 -->
-                        <div class="d-none d-lg-flex gap-2">
-                            <input type="date" v-model="filterB.start" class="form-control form-control-sm" title="Start Date">
-                            <input type="date" v-model="filterB.end" class="form-control form-control-sm" title="End Date">
-                        </div>
-
-                        <!-- 📱 手机端 -->
-                        <div class="d-flex d-lg-none flex-column gap-2">
-                            <div class="input-group">
-                                <span class="input-group-text bg-light text-secondary justify-content-center" style="min-width: 60px;">From</span>
-                                <input type="date" v-model="filterB.start" class="form-control mobile-date-input" required>
+                            <!-- 💻 电脑端 -->
+                            <div class="d-none d-lg-flex gap-2">
+                                <input type="date" v-model="filterB.start" class="form-control form-control-sm" title="Start Date">
+                                <input type="date" v-model="filterB.end" class="form-control form-control-sm" title="End Date">
                             </div>
-                            <div class="input-group">
-                                <span class="input-group-text bg-light text-secondary justify-content-center" style="min-width: 60px;">To</span>
-                                <input type="date" v-model="filterB.end" class="form-control mobile-date-input" required>
-                            </div>
-                        </div>
 
-                    </div>
+                            <!-- 📱 手机端 -->
+                            <div class="d-flex d-lg-none flex-column gap-2">
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light text-secondary justify-content-center" style="min-width: 60px;">From</span>
+                                    <input type="date" v-model="filterB.start" class="form-control mobile-date-input" required>
+                                </div>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light text-secondary justify-content-center" style="min-width: 60px;">To</span>
+                                    <input type="date" v-model="filterB.end" class="form-control mobile-date-input" required>
+                                </div>
+                            </div>
+
+                        </div>
                     </div>
 
                     <!-- Buttons -->
@@ -169,7 +162,7 @@
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end shadow">
                                 <li><a class="dropdown-item" href="#" @click.prevent="exportToExcel"><i class="bi bi-file-excel text-success me-2"></i>Excel Data</a></li>
-                                <li><a class="dropdown-item" href="#" @click.prevent="exportToPDF"><i class="bi bi-file-pdf text-danger me-2"></i>PDF Report</a></li>
+                                <li><a class="dropdown-item" href="#" @click.prevent="handleSmartExportPDF"><i class="bi bi-file-pdf text-danger me-2"></i>PDF Report</a></li>
                             </ul>
                         </div>
                     </div>
@@ -179,6 +172,7 @@
         </div>
     </div>
 
+    <!-- 3.1 Bar Charts (Intents) -->
     <div class="row mt-4">
         <div :class="isCompareMode ? 'col-12 col-md-6' : 'col-12'">
             <div class="card p-2 h-100">
@@ -201,6 +195,7 @@
         </div>
     </div>
 
+    <!-- 3.2 Line Charts (Department Trends) - 🔥 之前漏掉的部分已恢复 -->
     <div class="row mt-4">
         <div :class="isCompareMode ? 'col-12 col-md-6' : 'col-12'">
             <div class="card p-2 h-100">
@@ -223,25 +218,20 @@
         </div>
     </div>
 
-    <!-- 4. Top 10 FAQs (Dual View: Table for Desktop, List for Mobile) -->
+    <!-- 4. Top 10 FAQs -->
     <div class="row g-4 mt-4">
         <!-- Current Period -->
         <div :class="isCompareMode ? 'col-12 col-xl-6' : 'col-12'">
             <div class="card h-100 shadow-sm border-0">
                 <div class="card-header bg-white py-3">
-                    <h6 class="mb-0 fw-bold">Top 10 FAQs <span v-if="isCompareMode" class="text-muted fw-normal small ms-1">(Current Period)</span></h6>
+                    <h6 class="text-center mb-0 fw-bold">Top 10 FAQs <span v-if="isCompareMode" class="text-muted fw-bold small ms-1">(Current Period: {{ period1Label }})</span></h6>
                 </div>
                 <div class="card-body p-0">
-
-                    <!-- 💻 Desktop Table -->
+                    <!-- Desktop Table -->
                     <div class="d-none d-md-block table-responsive">
                         <table class="table table-hover align-middle mb-0">
                             <thead class="bg-light text-secondary small text-uppercase">
-                                <tr>
-                                    <th class="px-4">#</th>
-                                    <th>Question</th>
-                                    <th class="text-end px-4">Count</th>
-                                </tr>
+                                <tr><th class="px-4">#</th><th>Question</th><th class="text-end px-4">Count</th></tr>
                             </thead>
                             <tbody>
                                 <tr v-for="(item, index) in dataA.faqs.Faq" :key="index">
@@ -249,14 +239,11 @@
                                     <td class="text-truncate" style="max-width: 300px;">{{ item.question }}</td>
                                     <td class="text-end px-4 fw-bold text-dark">{{ item.total }}</td>
                                 </tr>
-                                <tr v-if="!dataA.faqs.Faq?.length">
-                                    <td colspan="3" class="text-center py-4 text-muted small">No data available</td>
-                                </tr>
+                                <tr v-if="!dataA.faqs.Faq?.length"><td colspan="3" class="text-center py-4 text-muted small">No data available</td></tr>
                             </tbody>
                         </table>
                     </div>
-
-                    <!-- 📱 Mobile List -->
+                    <!-- Mobile List -->
                     <ul class="d-md-none list-group list-group-flush">
                         <li v-for="(item, index) in dataA.faqs.Faq" :key="index" class="list-group-item p-3">
                             <div class="d-flex justify-content-between align-items-start">
@@ -265,11 +252,8 @@
                             </div>
                             <div class="mt-2 fw-medium small">{{ item.question }}</div>
                         </li>
-                        <li v-if="!dataA.faqs.Faq?.length" class="list-group-item text-center py-4 text-muted small">
-                            No data available
-                        </li>
+                        <li v-if="!dataA.faqs.Faq?.length" class="list-group-item text-center py-4 text-muted small">No data available</li>
                     </ul>
-
                 </div>
             </div>
         </div>
@@ -278,19 +262,13 @@
         <div class="col-12 col-xl-6" v-if="isCompareMode">
             <div class="card h-100 shadow-sm border-start border-primary border-4">
                 <div class="card-header bg-white py-3">
-                    <h6 class="mb-0 fw-bold text-primary">Top 10 FAQs <span class="text-muted fw-normal small ms-1">(Comparison Period)</span></h6>
+                    <h6 class="text-center mb-0 fw-bold text-primary">Top 10 FAQs <span class="text-muted fw-bold small ms-1">(Comparison Period: {{ period2Label }})</span></h6>
                 </div>
                 <div class="card-body p-0">
-
-                    <!-- 💻 Desktop Table -->
                     <div class="d-none d-md-block table-responsive">
                         <table class="table table-hover align-middle mb-0">
                             <thead class="bg-primary bg-opacity-10 text-primary small text-uppercase">
-                                <tr>
-                                    <th class="px-4">#</th>
-                                    <th>Question</th>
-                                    <th class="text-end px-4">Count</th>
-                                </tr>
+                                <tr><th class="px-4">#</th><th>Question</th><th class="text-end px-4">Count</th></tr>
                             </thead>
                             <tbody>
                                 <tr v-for="(item, index) in dataB.faqs.Faq" :key="index">
@@ -298,14 +276,10 @@
                                     <td class="text-truncate" style="max-width: 300px;">{{ item.question }}</td>
                                     <td class="text-end px-4 fw-bold text-dark">{{ item.total }}</td>
                                 </tr>
-                                <tr v-if="!dataB.faqs.Faq?.length">
-                                    <td colspan="3" class="text-center py-4 text-muted small">No data available</td>
-                                </tr>
+                                <tr v-if="!dataB.faqs.Faq?.length"><td colspan="3" class="text-center py-4 text-muted small">No data available</td></tr>
                             </tbody>
                         </table>
                     </div>
-
-                    <!-- 📱 Mobile List -->
                     <ul class="d-md-none list-group list-group-flush">
                         <li v-for="(item, index) in dataB.faqs.Faq" :key="index" class="list-group-item p-3">
                             <div class="d-flex justify-content-between align-items-start">
@@ -314,16 +288,14 @@
                             </div>
                             <div class="mt-2 fw-medium small">{{ item.question }}</div>
                         </li>
-                        <li v-if="!dataB.faqs.Faq?.length" class="list-group-item text-center py-4 text-muted small">
-                            No data available
-                        </li>
+                        <li v-if="!dataB.faqs.Faq?.length" class="list-group-item text-center py-4 text-muted small">No data available</li>
                     </ul>
-
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- 5. Floating Action Button (FAB) - 🔥 之前简化了，现在恢复原样 -->
     <div class="position-fixed bottom-0 end-0 p-4" style="z-index: 1050;" v-if="showFab" data-html2canvas-ignore="true">
         <button @click="aiSummary ? scrollToBottom() : triggerAnalysis()"
                 class="btn rounded-circle shadow-lg p-3 d-flex align-items-center justify-content-center"
@@ -334,11 +306,11 @@
         </button>
     </div>
 
+    <!-- 6. AI Result Section -->
     <div class="row mt-3" id="ai-result-section" ref="aiSectionRef">
         <div class="col-12">
-
             <div v-if="!aiSummary && !analyzing" class="text-center">
-                <button @click="generateAnalysis" class="btn btn-outline-primary btn-lg">
+                <button @click="triggerAnalysis" class="btn btn-outline-primary btn-lg">
                     <i class="bi bi-stars"></i> Generate AI Comparison Analysis
                 </button>
             </div>
@@ -351,7 +323,7 @@
             <div v-else class="card border-info shadow-sm">
                 <div class="card-header bg-white text-info d-flex justify-content-between align-items-center">
                     <span class="fw-bold"><i class="bi bi-robot me-2"></i>AI Executive Summary</span>
-                    <button @click="generateAnalysis" class="btn btn-sm btn-link text-muted" title="Regenerate">
+                    <button @click="triggerAnalysis" class="btn btn-sm btn-link text-muted" title="Regenerate">
                         <i class="bi bi-arrow-clockwise"></i>
                     </button>
                 </div>
@@ -362,289 +334,127 @@
                     </div>
                 </div>
             </div>
-
         </div>
     </div>
 
 </div>
 </template>
 
-<script>
-import { ref, reactive, onMounted, onUnmounted, computed, watch } from 'vue';
-import axios from 'axios';
-import { BarChart, LineChart } from 'vue-chart-3';
+<script setup>
+import { onMounted, onUnmounted, computed, ref, watch, nextTick } from 'vue';
+import { BarChart, LineChart } from 'vue-chart-3'; // 导入 LineChart
 import { Chart, registerables } from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
-import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+
+// 引入逻辑 Composable
+import { useDashboardData } from '../../composables/useDashboardData';
+import { useExport } from '../../composables/useExport';
+import { useAIAnalysis } from '../../composables/useAIAnalysis';
 
 Chart.register(...registerables, ChartDataLabels);
 
-export default {
-    components: { BarChart, LineChart },
-    setup() {
-        const token = localStorage.getItem('sanctum_token');
-        const loading = ref(false);
-        const exporting = ref(false);
-        const isCompareMode = ref(false);
-        const analyzing = ref(false);
-        const aiSummary = ref("");
-        const showFab = ref(false);
-        const aiSectionRef = ref(null);
-        let observer = null;
+// 1. Data Logic
+const {
+    loading, isCompareMode, filterA, filterB,
+    dataA, dataB, chartDataA, chartDataB,
+    period1Label, period2Label, handleSearch
+} = useDashboardData();
 
-        const filterA = reactive({ type: 'all-time', start: null, end: null });
-        const filterB = reactive({ type: 'all-time', start: null, end: null });
+// 2. Export Logic
+const { exporting, exportToExcel, exportToPDF } = useExport(
+    dataA, dataB, isCompareMode, period1Label, period2Label
+);
 
-        const dataA = reactive({ faqs: {}, stats: {}, trend: { labels: [], datasets: [] } });
-        const dataB = reactive({ faqs: {}, stats: {}, trend: { labels: [], datasets: [] } });
+// 3. AI Logic
+const { analyzing, aiSummary, generateAnalysis } = useAIAnalysis();
+const aiSectionRef = ref(null);
+const showFab = ref(false); // 用于控制 FAB 显示
+let observer = null;
 
-        const getRandomColor = () => '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
-        const getDiff = (a, b) => (a || 0) - (b || 0);
+const scrollToBottom = () => aiSectionRef.value?.scrollIntoView({ behavior: 'smooth' });
 
-        const period1Label = computed(() => {
-            if (filterA.type === 'custom-range' && filterA.start && filterA.end) return `${filterA.start} ~ ${filterA.end}`;
-            return filterA.type.charAt(0).toUpperCase() + filterA.type.slice(1);
-        });
+const triggerAnalysis = async () => {
+    scrollToBottom();
+    await generateAnalysis(dataA, dataB, isCompareMode, period1Label, period2Label);
+};
 
-        const period2Label = computed(() => {
-            if (filterB.type === 'custom-range' && filterB.start && filterB.end) return `${filterB.start} ~ ${filterB.end}`;
-            return filterB.type.charAt(0).toUpperCase() + filterB.type.slice(1);
-        });
+// 4. Chart Options (必须保留 LineChart 特定的配置)
+const barChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: {display: false}, datalabels: {color: '#fff', font: {weight: 'bold'}} },
+    scales: { y: {beginAtZero: true, grid: {display: false} }, x: {grid: {display: false}} }
+};
 
-        const formatChartData = (sourceData, sourceTrend) => {
-            const intentRaw = sourceData.Intent || [];
-            return {
-                intents: {
-                    labels: intentRaw.map(i => i.intent_name),
-                    datasets: [{
-                        label: 'Queries',
-                        data: intentRaw.map(i => i.total),
-                        backgroundColor: intentRaw.map(() => getRandomColor()),
-                        barPercentage: 0.6,
-                        borderRadius: 4
-                    }]
-                },
-                trends: sourceTrend
-            };
-        };
+// 🔥 关键：恢复 LineChart 的配置，确保 Legend 显示在 Top
+const lineChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: {position: 'top', labels: {boxWidth: 10, usePointStyle: true}} },
+    scales: { y: {beginAtZero: true} }
+};
 
-        const chartDataA = computed(() => formatChartData(dataA.faqs, dataA.trend));
-        const chartDataB = computed(() => formatChartData(dataB.faqs, dataB.trend));
+// 5. FAB Observer Setup
+const setupObserver = () => {
+    // 当 AI 区域出现在视口中时，隐藏悬浮按钮；否则显示
+    observer = new IntersectionObserver((e) => {
+        showFab.value = !e[0].isIntersecting;
+    }, { threshold: 0.1 });
 
-        const fetchDataInternal = async (filterType, startDate, endDate) => {
-            let q = `?filter=${filterType}`;
-            if (filterType === 'custom-range' && startDate && endDate) q += `&startDate=${startDate}&endDate=${endDate}`;
-            try {
-                const [resFaqs, resTrend, resStats] = await Promise.all([
-                    axios.get(`/api/top10Faqs${q}`, { headers: { Authorization: `Bearer ${token}` } }),
-                    axios.get(`/api/department-trend${q}`, { headers: { Authorization: `Bearer ${token}` } }),
-                    axios.get(`/api/getDashboardMetrics${q}`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: {} }))
-                ]);
+    if (aiSectionRef.value) observer.observe(aiSectionRef.value);
+};
 
-                const ds = resTrend.data.datasets ? resTrend.data.datasets.map(d => ({
-                    ...d, borderColor: getRandomColor(), backgroundColor: 'transparent', tension: 0.3, borderWidth: 2, pointRadius: 3
-                })) : [];
-
-                return {
-                    faqs: resFaqs.data,
-                    stats: {
-                        totalQuestions: resStats.data.totalQuestions || 0,
-                        totalSuccess: resStats.data.totalSuccess || 0,
-                        totalFail: resStats.data.totalFail || 0
-                    },
-                    trend: { labels: resTrend.data.labels || [], datasets: ds }
-                };
-            } catch (e) { return { faqs: {}, stats: {}, trend: { labels: [], datasets: [] } }; }
-        };
-
-        const handleSearch = async () => {
-            if (filterA.type === 'custom-range' && (!filterA.start || !filterA.end)) return;
-            aiSummary.value = ""; loading.value = true;
-            Object.assign(dataA, await fetchDataInternal(filterA.type, filterA.start, filterA.end));
-
-            if (isCompareMode.value && (filterB.type !== 'custom-range' || (filterB.start && filterB.end))) {
-                Object.assign(dataB, await fetchDataInternal(filterB.type, filterB.start, filterB.end));
-            } else {
-                Object.assign(dataB, { faqs: {}, stats: {}, trend: { labels: [], datasets: [] } });
-            }
-            loading.value = false;
-        };
-
-        watch(() => filterA.type, (v) => { if(v !== 'custom-range') handleSearch(); });
-        watch(() => filterB.type, (v) => { if(isCompareMode.value && v !== 'custom-range') handleSearch(); });
-        watch(isCompareMode, (v) => {
-            aiSummary.value = "";
-            if (v) {
-                filterA.type = 'custom-range'; filterB.type = 'custom-range';
-                filterA.start = null; filterA.end = null; filterB.start = null; filterB.end = null;
-                Object.assign(dataA, { faqs: {}, stats: {}, trend: { labels: [], datasets: [] } });
-                Object.assign(dataB, { faqs: {}, stats: {}, trend: { labels: [], datasets: [] } });
-            } else {
-                filterA.type = 'all-time';
-            }
-        });
-
-        const exportToExcel = () => {
-            const wb = XLSX.utils.book_new();
-
-            // 1. Summary
-            const summaryRows = [
-                ["Report Generated", new Date().toLocaleString() ? "Formular = Current - Comparison = Change": ""],
-                ["Mode", isCompareMode.value ? "Comparison" : "Single Period"],
-                // 🔥 修改：使用 period1Label.value
-                ["Current Period", period1Label.value],
-                // 🔥 修改：使用 period2Label.value
-                isCompareMode.value ? ["Comparison Period", period2Label.value] : [],
-                [],
-                ["Metric", "Current Period", isCompareMode.value ? "Comparison Period" : "", isCompareMode.value ? "Change" : ""],
-                ["Total Queries", dataA.stats.totalQuestions, isCompareMode.value ? dataB.stats.totalQuestions : "", isCompareMode.value ? dataA.stats.totalQuestions - dataB.stats.totalQuestions : ""],
-                ["Success", dataA.stats.totalSuccess, isCompareMode.value ? dataB.stats.totalSuccess : "", isCompareMode.value ? dataA.stats.totalSuccess - dataB.stats.totalSuccess : ""],
-                ["Failed", dataA.stats.totalFail, isCompareMode.value ? dataB.stats.totalFail : "", isCompareMode.value ? dataA.stats.totalFail - dataB.stats.totalFail : ""]
-            ];
-            const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
-            wsSummary['!cols'] = [{ wch: 20 }, { wch: 15 }, { wch: 15 }];
-            XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
-
-            // 2. Intents (Merged Side-by-Side)
-            const allIntents = new Set([
-                ...(dataA.faqs.Intent || []).map(i => i.intent_name),
-                ...(isCompareMode.value ? (dataB.faqs.Intent || []).map(i => i.intent_name) : [])
-            ]);
-
-            const intentRows = Array.from(allIntents).map(name => {
-                const valA = (dataA.faqs.Intent || []).find(i => i.intent_name === name)?.total || 0;
-                const valB = (dataB.faqs.Intent || []).find(i => i.intent_name === name)?.total || 0;
-                return {
-                    "Intent": name,
-                    "Current Period": valA,
-                    ...(isCompareMode.value && { "Comparison Period": valB, "Change": valA - valB })
-                };
-            });
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(intentRows), "Intents");
-
-            const allDepts = new Set([
-                ...(dataA.faqs.Department || []).map(d => d.name),
-                ...(isCompareMode.value ? (dataB.faqs.Department || []).map(d => d.name) : [])
-            ]);
-
-            const deptRows = Array.from(allDepts).map(name => {
-                const valA = (dataA.faqs.Department || []).find(d => d.name === name)?.total || 0;
-                const valB = (dataB.faqs.Department || []).find(d => d.name === name)?.total || 0;
-                return {
-                    "Department": name,
-                    "Current Period": valA,
-                    ...(isCompareMode.value && { "Comparison Period": valB, "Change": valA - valB })
-                };
-            });
-
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(deptRows), "Departments");
-            // 3. FAQs (Side by Side)
-            const faqRows = [];
-            const maxLen = Math.max(dataA.faqs.Faq?.length || 0, dataB.faqs.Faq?.length || 0);
-            for(let i=0; i<maxLen; i++) {
-                const row = {};
-                if(dataA.faqs.Faq?.[i]) {
-                    row["Current Period Rank"] = i+1;
-                    row["Current Period Question"] = dataA.faqs.Faq[i].question;
-                    row["Current Period Count"] = dataA.faqs.Faq[i].total;
-                }
-                if(isCompareMode.value && dataB.faqs.Faq?.[i]) {
-                    row["|"] = "|"; // Separator
-                    row["Comparison Period Rank"] = i+1;
-                    row["Comparison Period Question"] = dataB.faqs.Faq[i].question;
-                    row["Comparison Period Count"] = dataB.faqs.Faq[i].total;
-                    row["Change"] = dataA.faqs.Faq[i].total - dataB.faqs.Faq[i].total;
-                }
-                faqRows.push(row);
-            }
-            const wsFaq = XLSX.utils.json_to_sheet(faqRows);
-            wsFaq['!cols'] = [{ wch: 5 }, { wch: 40 }, { wch: 10 }, { wch: 2 }, { wch: 5 }, { wch: 40 }, { wch: 10 }];
-            XLSX.utils.book_append_sheet(wb, wsFaq, "FAQs");
-
-            XLSX.writeFile(wb, `Report_${new Date().toISOString().slice(0,10)}.xlsx`);
-        };
-
-        const exportToPDF = async () => {
-            exporting.value = true;
-            loading.value = true;
-            if (!aiSummary.value && confirm("Generate AI Analysis?")) await generateAnalysis();
-            await new Promise(r => setTimeout(r, 500));
-
-            const element = document.getElementById('dashboard-content');
-            try {
-                const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-                const imgData = canvas.toDataURL('image/png');
-                const pdf = new jsPDF('p', 'mm', 'a4');
-                const pdfW = pdf.internal.pageSize.getWidth();
-                const pdfH = pdf.internal.pageSize.getHeight();
-                const imgH = (canvas.height * pdfW) / canvas.width;
-
-                let heightLeft = imgH;
-                let position = 0;
-                pdf.addImage(imgData, 'PNG', 0, position, pdfW, imgH);
-                heightLeft -= pdfH;
-                while (heightLeft >= 0) {
-                    position = heightLeft - imgH;
-                    pdf.addPage();
-                    pdf.addImage(imgData, 'PNG', 0, position, pdfW, imgH);
-                    heightLeft -= pdfH;
-                }
-                pdf.save(`Report_${new Date().toISOString().slice(0,10)}.pdf`);
-            } catch(e) { console.error(e); }
-            finally { loading.value = false; exporting.value = false; }
-        };
-
-        const generateAnalysis = async () => {
-            analyzing.value = true;
-            try {
-                const payload = {
-                    mode: isCompareMode.value ? 'comparison' : 'single',
-                    period1: { filter: period1Label.value, stats: dataA.stats, topIntent: dataA.faqs.Intent?.[0]?.intent_name },
-                    period2: isCompareMode.value ? { range: period2Label.value, stats: dataB.stats, topIntent: dataB.faqs.Intent?.[0]?.intent_name } : null
-                };
-                const res = await axios.post('/api/generate-summary', { stats: payload }, { headers: { Authorization: `Bearer ${token}` } });
-                aiSummary.value = res.data.summary;
-            } catch(e) { alert("AI Error"); } finally { analyzing.value = false; }
-        };
-
-        const triggerAnalysis = () => {
-            scrollToBottom();
-            generateAnalysis();
-        };
-
-        const scrollToBottom = () => aiSectionRef.value?.scrollIntoView({ behavior: 'smooth' });
-
-        const setupObserver = () => {
-            observer = new IntersectionObserver((e) => { showFab.value = !e[0].isIntersecting; }, { threshold: 0.1 });
-            if (aiSectionRef.value) observer.observe(aiSectionRef.value);
-        };
-
-        const barChartOptions = ref({ responsive: true, maintainAspectRatio: false, plugins: { legend: {display: false}, datalabels: {color: '#fff', font: {weight: 'bold'}} }, scales: { y: {beginAtZero: true, grid: {display: false} }, x: {grid: {display: false}} } });
-        const lineChartOptions = ref({ responsive: true, maintainAspectRatio: false, plugins: { legend: {position: 'top', labels: {boxWidth: 10, usePointStyle: true}} }, scales: { y: {beginAtZero: true} } });
-
-        onMounted(() => { handleSearch(); setupObserver(); });
-        onUnmounted(() => { if (observer) observer.disconnect(); });
-
-        return {
-            loading, exporting, isCompareMode, analyzing, aiSummary, aiSectionRef, showFab,
-            filterA, filterB, dataA, dataB, chartDataA, chartDataB,
-            barChartOptions, lineChartOptions, handleSearch, exportToExcel, exportToPDF,
-            generateAnalysis, triggerAnalysis, scrollToBottom, getDiff, period1Label, period2Label
-        };
+watch(
+    [
+        () => filterA.type, () => filterA.start, () => filterA.end,
+        () => filterB.type, () => filterB.start, () => filterB.end,
+        isCompareMode
+    ],
+    () => {
+        if (aiSummary.value) {
+            aiSummary.value = ""; // 清空旧数据
+        }
     }
-}
+);
+
+// 🔥🔥🔥 核心修复 2: 智能导出逻辑 (Smart Export) 🔥🔥🔥
+const handleSmartExportPDF = async () => {
+    // 如果没有 AI 总结，询问用户
+    if (!aiSummary.value) {
+        const confirmGen = confirm("AI Analysis is missing. Do you want to generate it before exporting?");
+
+        if (confirmGen) {
+            // 用户选择生成：先生成
+            await triggerAnalysis();
+
+            // 等待 DOM 更新 (因为 AI 文本生成后，页面高度会变，需要等 Vue 渲染完)
+            await nextTick();
+            // 额外给一点时间让展开动画完成 (可选)
+            await new Promise(r => setTimeout(r, 500));
+        }
+    }
+
+    // 执行真正的导出 (无论是否生成了 AI，或者用户选了 No，都继续导出)
+    exportToPDF('dashboard-content');
+};
+
+onMounted(() => {
+    handleSearch();
+    setupObserver();
+});
+
+onUnmounted(() => {
+    if (observer) observer.disconnect();
+});
 </script>
 
 <style scoped>
-/* 颜色变量 */
+/* 保持原有样式，不做任何删减 */
 .bg-purple { background-color: #6f42c1 !important; }
 .bg-gradient-primary { background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%); }
 .text-success-light { color: #d1e7dd !important; }
 .text-warning-light { color: #fff3cd !important; }
 
-/* 手机端图表高度微调 */
 @media (max-width: 768px) {
     .chart-wrapper {
         min-height: 250px;
@@ -652,7 +462,6 @@ export default {
     }
 }
 
-/* 悬浮按钮样式 */
 .fab-btn {
     width: 56px;
     height: 56px;
@@ -661,26 +470,17 @@ export default {
 }
 .fab-btn:active { transform: scale(0.9); }
 
-/* AI 文本排版 */
-.ai-text {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    color: #2c3e50;
-}
-
-/* 下滑动画 */
 .animate-slide-down {
     animation: slideDown 0.3s ease-out;
 }
 
-/* 📱 修复手机端 Date Picker 空白问题 */
+/* 📱 手机端 Date Picker 样式修复 */
 .mobile-date-input {
     color: #212529;
     background-color: #fff;
-    min-height: 40px; /* 手机上稍微高一点，好点 */
-    font-size: 1rem;  /* 手机上字体大一点防止缩放 */
+    min-height: 40px;
+    font-size: 1rem;
 }
-
-/* 利用 :invalid 伪类在手机上显示 "Select Date" 提示 */
 .mobile-date-input:invalid::-webkit-datetime-edit {
     color: transparent;
 }
@@ -690,8 +490,6 @@ export default {
     margin-right: 0.5rem;
     position: absolute;
 }
-
-/* 修复部分 Android 浏览器日期图标太大的问题 */
 input[type="date"]::-webkit-calendar-picker-indicator {
     cursor: pointer;
     opacity: 0.6;

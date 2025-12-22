@@ -5,21 +5,30 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\QuestionLog;
-use App\Models\Faq;
+use App\Services\QuestionLogService;
+use App\Http\Requests\StoreFaqRequest; // 复用 FAQ 的验证逻辑
 
-
-
-class questionLogController extends Controller
+class QuestionLogController extends Controller
 {
+    protected $logService;
+
+    public function __construct(QuestionLogService $logService)
+    {
+        $this->logService = $logService;
+    }
+
     public function index()
     {
-        $questionLogs = QuestionLog::with(['intent', 'department', 'faq'])->get();
-        return response()->json($questionLogs);
+        // 简单查询可以直接在 Controller 做，没必要强行 Service
+        $logs = QuestionLog::with(['intent', 'department', 'faq'])
+                    ->orderBy('created_at', 'desc')
+                    ->get();
+        return response()->json($logs);
     }
 
     public function show($id)
     {
-        $questionLog = QuestionLog::find($id);
+        $questionLog = QuestionLog::with(['intent', 'department', 'faq'])->find($id);
         if (!$questionLog) {
             return response()->json(['message' => 'Question Log not found'], 404);
         }
@@ -32,107 +41,89 @@ class questionLogController extends Controller
         return response()->json(['message' => 'All question logs deleted successfully']);
     }
 
+    /**
+     * 获取所有失败且未检查的日志
+     */
     public function selectFail()
     {
         $failedLogs = QuestionLog::where('status', false)
-        ->where('checked',false)
-        ->get();
+            ->where('checked', false)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
         return response()->json($failedLogs);
     }
 
+    /**
+     * 批量标记已检查
+     */
     public function markSelectedAsChecked(Request $request)
     {
-        // 1. Validate the request to ensure 'ids' is present and is an array of integers
         $request->validate([
             'ids' => 'required|array',
-            'ids.*' => 'integer|exists:question_logs,id', // Checks IDs are integers and exist in the table
+            'ids.*' => 'integer|exists:question_logs,id',
         ]);
 
-        $ids = $request->input('ids');
-
-        // 2. Perform a single mass update query
-        $count = QuestionLog::whereIn('id', $ids)
-                           ->update(['checked' => true]);
+        $count = $this->logService->markLogsAsChecked($request->input('ids'));
 
         if ($count === 0) {
-            return response()->json(['message' => 'No question logs found or updated.'], 404);
+            return response()->json(['message' => 'No logs updated.'], 404);
         }
 
         return response()->json([
-            'message' => "{$count} Question Logs marked as checked successfully.",
+            'message' => "{$count} logs marked as checked.",
             'updated_count' => $count
         ]);
     }
 
-    public function insertAndMark(Request $request, $id){
-
-        $questionLog = QuestionLog::find($id);
-
-        if(!$questionLog){
-            return response()->json(['message' => 'Question Log not found'], 404);
-        }
-
-        $request->merge([
-            'intent_id' => $request->intent_id === 'null' || $request->intent_id === '' ? null : $request->intent_id,
-            'department_id' => $request->department_id === 'null' || $request->department_id === '' ? null : $request->department_id,
-        ]);
-
-        $request->validate([
-            'question' => 'required|string',
-            'answer' => 'required|string',
-            'intent_id' => 'nullable|exists:intents,id',
-            'department_id' => 'nullable|exists:departments,id',
-        ]);
-
-        $faq = Faq::create($request->all());
-
-        $Marked =QuestionLog::where('id', $id)
-        ->update(['checked' => true]);
-
-        return response()->json([
-
-            'message' => 'FAQ created and Question Log marked successfully.',
-            'question_log_status' => [
-                'id_marked' => (int)$id,
-                'rows_updated' => $Marked,
-            ],
-            'new_faq' => $faq,
-
-        ], 201);
-
-    }
-
-    public function exportExcel()
+    /**
+     * 🔥 核心重构：将 Log 转化为 FAQ
+     * 使用 StoreFaqRequest 自动处理验证和 "null" 清洗
+     */
+    public function insertAndMark(StoreFaqRequest $request, $id)
     {
-        // Placeholder for Excel export functionality
-        return response()->json(['message' => 'Excel export not implemented yet'], 501);
+        try {
+            // 调用 Service 执行事务操作
+            // $request->validated() 获取经过验证和清洗的数据
+            $result = $this->logService->convertLogToFaq($id, $request->validated());
+
+            return response()->json([
+                'message' => 'FAQ created and Log marked successfully.',
+                'new_faq' => $result['faq'],
+                'log_id' => $result['log']->id
+            ], 201);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['message' => 'Question Log not found'], 404);
+        } catch (\Exception $e) {
+            // 捕获事务失败或其他错误
+            return response()->json(['message' => 'Conversion failed', 'error' => $e->getMessage()], 500);
+        }
     }
 
-        // 获取所有 "已请求" 但 "未回复" 的记录
+    // --- Admin Support 区域 ---
+
     public function getPendingSupportRequests()
     {
         $requests = QuestionLog::where('help_requested', true)
-            ->whereNull('admin_reply') // 只看还没回复的
+            ->whereNull('admin_reply')
             ->orderBy('created_at', 'desc')
             ->get();
 
         return response()->json($requests);
     }
 
-    // 管理员提交回复
     public function replyToSupportRequest(Request $request)
     {
-        $logId = $request->input('log_id');
-        $replyText = $request->input('reply');
+        $request->validate([
+            'log_id' => 'required|exists:question_logs,id',
+            'reply' => 'required|string'
+        ]);
 
-        $log = QuestionLog::find($logId);
-        if ($log) {
-            $log->update([
-                'admin_reply' => $replyText,
-                'replied_at' => now()
-                // 注意：我们不改 status，保持它是 false，因为它确实是 AI 回答失败的记录
-            ]);
-        }
+        $this->logService->replyToRequest(
+            $request->input('log_id'),
+            $request->input('reply')
+        );
 
         return response()->json(['status' => 'success']);
     }

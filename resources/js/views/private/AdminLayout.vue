@@ -1,7 +1,6 @@
 <template>
     <div class="admin-layout">
         <!-- 1. 顶部导航栏 (Sticky Top) -->
-        <!-- 添加 sticky-top 实现吸顶 -->
         <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
             <div class="container-fluid">
                 <!-- Brand -->
@@ -47,9 +46,7 @@
                         </li>
                     </ul>
 
-                    <!-- Right: Action Buttons (修复按钮大小不一致问题) -->
-                    <!-- 使用 align-items-center 确保垂直居中 -->
-                    <!-- gap-2 控制间距 -->
+                    <!-- Right: Action Buttons -->
                     <div class="d-flex flex-column flex-lg-row align-items-lg-center gap-2 mt-3 mt-lg-0 action-buttons">
 
                         <!-- 1. Live Help -->
@@ -91,8 +88,6 @@
 
         <!-- 2. 主内容区域 -->
         <main class="main-content bg-light">
-            <!-- 修复白屏问题：移除了 <transition> 标签 -->
-            <!-- 直接渲染组件，这是最稳定的做法 -->
             <router-view />
         </main>
 
@@ -149,94 +144,71 @@
     </div>
 </template>
 
-<script>
+<script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
-import axios from 'axios';
-import { useFailedLogStore } from '../../services/useFailsLog';
 import { Collapse } from 'bootstrap';
+import { useNotificationStore } from '../../composables/useNotificationStore';
 
-export default {
-    setup() {
-        const { failsCount, refreshFailedLogs } = useFailedLogStore();
-        const router = useRouter();
-        const token = localStorage.getItem('sanctum_token');
-        const liveRequests = ref([]);
-        const showHelpModal = ref(false);
-        const navbarCollapse = ref(null);
-        let adminPollTimer = null;
+const router = useRouter();
+const navbarCollapse = ref(null);
+const showHelpModal = ref(false);
 
-        const startAdminPolling = () => {
-            if (!token) return;
+// 1. 引入 Notification Store
+const {
+    failsCount,
+    liveRequests,
+    startPolling,
+    stopPolling,
+    sendReplyToUser
+} = useNotificationStore();
 
-            // 建议：先立即执行一次，不要等5秒
-            refreshFailedLogs();
+const isLoggedIn = ref(!!localStorage.getItem('sanctum_token'));
 
-            adminPollTimer = setInterval(async () => {
-                try {
-                    // 1. 轮询 Live Help 请求 (保持原有逻辑)
-                    const res = await axios.get('/api/admin/support-requests', {
-                        headers: { Authorization: `Bearer ${token}` }
-                    });
-                    const newData = res.data;
-                    const updatedList = newData.map(newItem => {
-                        const existingItem = liveRequests.value.find(oldItem => oldItem.id === newItem.id);
-                        return {
-                            ...newItem,
-                            replyDraft: existingItem ? existingItem.replyDraft : ''
-                        };
-                    });
-                    liveRequests.value = updatedList;
+// 2. Action Logic
+const sendReply = async (req) => {
+    await sendReplyToUser(req);
+    // 如果发送成功后没有请求了，可以选自动关闭 Modal (这里先不关)
+};
 
-                    // 🌟 2. 新增：顺便轮询 Failed Logs 数量
-                    // 这样当 Chat 页面产生失败记录时，管理员这里的红色 badge 会自动更新
-                    await refreshFailedLogs();
+const handleLiveHelpClick = () => {
+    closeNavbar();
+    showHelpModal.value = true;
+};
 
-                } catch (e) {
-                    console.error("Poll error"); // 静默失败，不打扰管理员
-                }
-            }, 5000); // 每 5 秒检查一次
-        };
+const viewFailLog = () => {
+    closeNavbar();
+    router.push(`/admin/failLog/`);
+};
 
-        const openHelpModal = () => showHelpModal.value = true;
-        const handleLiveHelpClick = () => { closeNavbar(); openHelpModal(); };
+const handleLogout = () => {
+    closeNavbar();
+    localStorage.removeItem('sanctum_token');
+    router.push('/login');
+};
 
-        const sendReply = async (req) => {
-            if (!req.replyDraft) return;
-            try {
-                await axios.post('/api/admin/reply-support', {
-                    log_id: req.id, reply: req.replyDraft
-                }, { headers: { Authorization: `Bearer ${token}` } });
-                liveRequests.value = liveRequests.value.filter(r => r.id !== req.id);
-            } catch (e) { alert("Failed to send"); }
-        };
-
-        const viewFailLog = () => { closeNavbar(); router.push(`/admin/failLog/`); };
-        const handleLogout = () => { closeNavbar(); localStorage.removeItem('sanctum_token'); router.push('/login'); };
-
-        const closeNavbar = () => {
-            if (navbarCollapse.value && window.innerWidth < 992) {
-                if (navbarCollapse.value.classList.contains('show')) {
-                    const bsCollapse = Collapse.getInstance(navbarCollapse.value) || new Collapse(navbarCollapse.value);
-                    bsCollapse.hide();
-                }
-            }
-        };
-
-        const isLoggedIn = () => !!localStorage.getItem('sanctum_token');
-
-        onMounted(() => { refreshFailedLogs(); startAdminPolling(); });
-        onUnmounted(() => { if (adminPollTimer) clearInterval(adminPollTimer); });
-
-        return {
-            failsCount, refreshFailedLogs, viewFailLog, isLoggedIn: isLoggedIn(), handleLogout,
-            liveRequests, showHelpModal, openHelpModal, sendReply, navbarCollapse, closeNavbar, handleLiveHelpClick
-        };
+// 3. Navbar Logic (手机端自动折叠)
+const closeNavbar = () => {
+    if (navbarCollapse.value && window.innerWidth < 992) {
+        if (navbarCollapse.value.classList.contains('show')) {
+            const bsCollapse = Collapse.getInstance(navbarCollapse.value) || new Collapse(navbarCollapse.value);
+            bsCollapse.hide();
+        }
     }
-}
+};
+
+// 4. Lifecycle
+onMounted(() => {
+    startPolling();
+});
+
+onUnmounted(() => {
+    stopPolling();
+});
 </script>
 
 <style scoped>
+/* 保持原有设计 */
 .admin-layout {
     min-height: 100vh;
     display: flex;
@@ -268,9 +240,7 @@ export default {
     font-weight: 600;
 }
 
-/* 按钮样式修复 */
 .action-buttons .btn {
-    /* 强制所有按钮高度一致 */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -278,10 +248,9 @@ export default {
     padding-bottom: 0.375rem;
 }
 
-/* 修复手机端按钮宽度 */
 @media (max-width: 991px) {
     .action-buttons .btn {
-        justify-content: flex-start; /* 手机上文字左对齐 */
+        justify-content: flex-start;
         padding-left: 1rem;
     }
 }

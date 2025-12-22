@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Log; // Added for better debugging
 class GeminiService
 {
     protected $apiKey;
-    protected $endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+    protected $endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
     public function __construct()
     {
@@ -42,7 +42,8 @@ class GeminiService
             ];
         }
 
-        $response = Http::post($url, $payload);
+        // 🔥 修改 1: 增加重试机制 (3次，每次间隔100ms) 防止网络抖动
+        $response = Http::retry(3, 100)->post($url, $payload);
 
         if ($response->successful()) {
             $data = $response->json();
@@ -71,8 +72,9 @@ class GeminiService
             return "Model returned an unexpected part type.";
         }
 
-        Log::error('Gemini API (askGemini) failed: ' . $response->body());
-        return "Sorry, something went wrong with the Gemini API. (askGemini error)";
+        // 🔥 修改 2: 失败时抛出异常，包含具体的 API 错误信息
+        // 这样 ChatBotService 就能抓到具体的错误（比如 "429 Too Many Requests"）
+        throw new \Exception("Gemini API Error: " . $response->body());
     }
 
     // --- NEW METHOD FOR NATURAL LANGUAGE REPHRASING ---
@@ -104,8 +106,8 @@ class GeminiService
                 ?? "Could not generate natural language reply.";
         }
 
-        Log::error('Gemini API (generateText) failed: ' . $response->body());
-        return "Sorry, a secondary API call for rephrasing failed.";
+        // 🔥 修改 3: 同样抛出异常
+        throw new \Exception("Gemini API Error (GenText): " . $response->body());
     }
 
     /**

@@ -218,12 +218,12 @@
 import { ref, reactive, onMounted, computed } from 'vue';
 import axios from 'axios';
 import Swal from 'sweetalert2';
-import { useDataFetcher } from '../../services/useDataFetcher';
-import { useFailedLogStore } from '../../services/useFailsLog';
+import { useDataFetcher } from '../../composables/useDataFetcher';
+import { useNotificationStore } from '../../composables/useNotificationStore';
 
 export default {
     setup() {
-        const { refreshFailedLogs } = useFailedLogStore();
+        const { refresh } = useNotificationStore();
         const { intents, departments, getIntents, getDepartments } = useDataFetcher();
         const token = localStorage.getItem('sanctum_token');
 
@@ -267,9 +267,13 @@ export default {
         const getFail = async () => {
             loading.value = true; error.value = null;
             try {
-                const logs = await refreshFailedLogs();
-                fails.value = logs;
-                selectedLogIds.value = [];
+                const response = await axios.get('/api/selectFailedLogs', {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                fails.value = response.data;
+
+                // 顺便刷新一下全局状态的红点
+                refresh();
             } catch (err) {
                 error.value = 'Failed to load logs.';
                 fails.value = [];

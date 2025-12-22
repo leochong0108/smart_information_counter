@@ -3,14 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\Intent;
+use App\Http\Requests\StoreIntentRequest; // 引入 Request
 
-class intentController extends Controller
+class IntentController extends Controller
 {
     public function index()
     {
-        $intents = Intent::with('faqs','department')->get();
+        // 包含关联关系，方便前端展示
+        $intents = Intent::with(['faqs', 'department'])->get();
         return response()->json($intents);
     }
 
@@ -23,32 +24,22 @@ class intentController extends Controller
         return response()->json($intent);
     }
 
-    public function store(Request $request)
+    // 使用 Request 自动验证
+    public function store(StoreIntentRequest $request)
     {
-        $request->validate([
-            'intent_name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'department_id' => 'nullable|exists:departments,id',
-        ]);
-
-        $intent = Intent::create($request->all());
+        // $request->validated() 返回的是处理干净的数据（department_id 已经是 null 而不是 "null"）
+        $intent = Intent::create($request->validated());
         return response()->json($intent, 201);
     }
 
-    public function update(Request $request, $id)
+    public function update(StoreIntentRequest $request, $id)
     {
         $intent = Intent::find($id);
         if (!$intent) {
             return response()->json(['message' => 'Intent not found'], 404);
         }
 
-        $request->validate([
-            'intent_name' => 'sometimes|required|string|max:255',
-            'description' => 'nullable|string',
-            'department_id' => 'nullable|exists:departments,id',
-        ]);
-
-        $intent->update($request->all());
+        $intent->update($request->validated());
         return response()->json($intent);
     }
 

@@ -3,16 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\Faq;
+use App\Http\Requests\StoreFaqRequest; // 引入刚才创建的 Request
+use Illuminate\Http\Request;
 
-class faqController extends Controller
+class FaqController extends Controller
 {
-
     public function index()
     {
-        $faqs = Faq::with(['intent', 'department'])->get();
-        return response()->json($faqs);
+        return response()->json(Faq::with(['intent', 'department'])->get());
     }
 
     public function show($id)
@@ -24,44 +23,23 @@ class faqController extends Controller
         return response()->json($faq);
     }
 
-    public function store(Request $request)
+    // 使用 StoreFaqRequest 自动处理验证和数据清理
+    public function store(StoreFaqRequest $request)
     {
-        $request->merge([
-            'intent_id' => $request->intent_id === 'null' || $request->intent_id === '' ? null : $request->intent_id,
-            'department_id' => $request->department_id === 'null' || $request->department_id === '' ? null : $request->department_id,
-        ]);
-
-        $request->validate([
-            'question' => 'required|string|max:255',
-            'answer' => 'required|string',
-            'intent_id' => 'nullable|exists:intents,id',
-            'department_id' => 'nullable|exists:departments,id',
-        ]);
-
-        $faq = Faq::create($request->all());
+        // $request->validated() 只会返回规则里验证过的数据
+        $faq = Faq::create($request->validated());
         return response()->json($faq, 201);
     }
 
-    public function update(Request $request, $id)
+    // 更新逻辑其实可以用同一个 Request，或者新建 UpdateFaqRequest
+    public function update(StoreFaqRequest $request, $id)
     {
         $faq = Faq::find($id);
         if (!$faq) {
             return response()->json(['message' => 'FAQ not found'], 404);
         }
 
-        $request->merge([
-            'intent_id' => $request->intent_id === 'null' || $request->intent_id === '' ? null : $request->intent_id,
-            'department_id' => $request->department_id === 'null' || $request->department_id === '' ? null : $request->department_id,
-        ]);
-
-        $request->validate([
-            'question' => 'sometimes|required|string|max:255',
-            'answer' => 'sometimes|required|string',
-            'intent_id' => 'nullable|exists:intents,id',
-            'department_id' => 'nullable|exists:departments,id',
-        ]);
-
-        $faq->update($request->all());
+        $faq->update($request->validated());
         return response()->json($faq);
     }
 

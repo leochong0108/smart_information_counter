@@ -33,12 +33,13 @@ class Faq extends Model
     }
 
     // ⚡️ 自动化逻辑：当 FAQ 创建或更新时，自动生成向量
+
     protected static function boot()
     {
         parent::boot();
 
         static::saving(function ($faq) {
-            // 只有当 'question' 字段发生变化，或者 'embedding' 为空时，才去调 API
+
             if ($faq->isDirty('question') || empty($faq->embedding)) {
                 $gemini = new GeminiService();
                 $vector = $gemini->generateEmbedding($faq->question);

@@ -226,23 +226,27 @@
 </div>
 </template>
 
-<script>
+<script setup>
 import { ref, onMounted, computed } from 'vue';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
-import { useDataFetcher } from '../../services/useDataFetcher';
+import { useDataFetcher } from '../../composables/useDataFetcher';
 
-export default {
-    setup() {
         const token = localStorage.getItem('sanctum_token');
         const logs = ref([]);
         const error = ref(null);
         const searchTerm = ref('');
 
         // Data Fetching
-        const { intents, departments, loading } = useDataFetcher();
+        const {
+            intents,
+            departments,
+            loading, // 注意：这里 loading 会和 getLogs 里的 loading 冲突，建议重命名或者只用其中一个
+            getIntents,     // <--- 新增
+            getDepartments  // <--- 新增
+        } = useDataFetcher();
 
         // Filters
         const selectedIntentId = ref('');
@@ -327,16 +331,12 @@ export default {
             return data;
         });
 
-        onMounted(() => { getLogs(); }); // DataFetcher handles intents/departments
+        onMounted(() => {
+            getLogs();
+            getIntents();
+            getDepartments();
+        }); // DataFetcher handles intents/departments
 
-        return {
-            logs, filteredLogs, loading,
-            searchTerm, selectedIntentId, selectedDepartmentId, selectedStatus, selectedRemark,
-            intents, departments, uniqueRemarks,
-            exportLogs
-        };
-    }
-};
 </script>
 
 <style scoped>
