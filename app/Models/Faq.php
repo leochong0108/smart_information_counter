@@ -32,7 +32,6 @@ class Faq extends Model
         return $this->hasMany(QuestionLog::class);
     }
 
-    // ⚡️ 自动化逻辑：当 FAQ 创建或更新时，自动生成向量
 
     protected static function boot()
     {

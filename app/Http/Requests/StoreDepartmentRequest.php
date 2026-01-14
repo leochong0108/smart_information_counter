@@ -8,7 +8,7 @@ class StoreDepartmentRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true; // 允许所有登录用户操作
+        return true;
     }
 
     public function rules(): array

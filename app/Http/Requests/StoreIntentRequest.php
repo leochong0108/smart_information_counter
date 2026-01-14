@@ -8,7 +8,7 @@ class StoreIntentRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true; // 允许所有登录用户操作
+        return true;
     }
 
     public function rules(): array
@@ -20,10 +20,7 @@ class StoreIntentRequest extends FormRequest
         ];
     }
 
-    /**
-     * 在验证之前清理数据
-     * 解决前端传 "null" 字符串的问题
-     */
+
     protected function prepareForValidation()
     {
         $this->merge([

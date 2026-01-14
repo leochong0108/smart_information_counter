@@ -1,9 +1,6 @@
 <template>
 <div class="container-fluid py-4">
 
-    <!-- 1. 顶部 Header & 批量操作按钮 -->
-
-
     <div class="row align-items-center mb-4">
         <div class="col-12 col-md-6 mb-3 mb-md-0">
             <h1 class="h3 mb-0 text-gray-800">
@@ -35,28 +32,22 @@
         </div>
     </div>
 
-    <!-- Loading State -->
     <div v-if="loading" class="text-center py-5">
         <div class="spinner-border text-danger" role="status"></div>
         <p class="text-muted mt-2">Loading data...</p>
     </div>
 
-    <!-- Error State -->
     <div v-else-if="error" class="alert alert-danger shadow-sm">
         <i class="bi bi-exclamation-triangle-fill me-2"></i> {{ error }}
     </div>
 
-    <!-- Empty State (根据筛选结果显示) -->
     <div v-else-if="filteredFails.length === 0" class="text-center py-5">
         <div class="mb-3 text-muted display-1"><i class="bi bi-filter-circle"></i></div>
         <h4 class="text-muted">No logs found</h4>
         <p class="text-muted">Try changing the filter or there are no failed logs.</p>
     </div>
 
-    <!-- Content Area -->
     <div v-else>
-
-        <!-- 📱 MOBILE VIEW: Cards -->
         <div class="d-block d-md-none">
             <div class="d-flex align-items-center mb-3 px-1">
                 <div class="form-check">
@@ -68,7 +59,6 @@
                 </div>
             </div>
 
-            <!-- 🌟 修改：遍历 filteredFails -->
             <div v-for="fail in filteredFails" :key="fail.id"
                  class="card shadow-sm mb-3 border-0 transition-hover"
                  :class="{'border-primary border-2': selectedLogIds.includes(fail.id)}">
@@ -88,7 +78,6 @@
                         </span>
                     </div>
 
-                    <!-- 如果是系统错误，禁用创建 FAQ 按钮 (可选优化) -->
                     <button v-if="!fail.remark?.includes('System Error')" class="btn btn-outline-primary w-100" @click="openConvertModal(fail)">
                         <i class="bi bi-magic me-2"></i> Create FAQ
                     </button>
@@ -99,7 +88,6 @@
             </div>
         </div>
 
-        <!-- 💻 DESKTOP VIEW: Table -->
         <div class="d-none d-md-block card shadow border-0 rounded-3 overflow-hidden">
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
@@ -118,7 +106,6 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <!-- 🌟 修改：遍历 filteredFails -->
                         <tr v-for="(fail, index) in filteredFails" :key="fail.id"
                             :class="{'table-active': selectedLogIds.includes(fail.id)}">
                             <td class="px-4 text-center">
@@ -147,7 +134,6 @@
                             </td>
 
                             <td class="px-3 text-center">
-                                <!-- 只有非系统错误才显示 Create FAQ -->
                                 <button v-if="!fail.remark?.includes('System Error')" class="btn btn-sm btn-primary px-3 shadow-sm" @click="openConvertModal(fail)">
                                     <i class="bi bi-plus-circle me-1"></i> Create FAQ
                                 </button>
@@ -160,7 +146,6 @@
         </div>
     </div>
 
-    <!-- Modal (保持不变) -->
     <div v-if="showModal" class="modal-backdrop fade show"></div>
     <div v-if="showModal" class="modal fade show d-block" tabindex="-1" @click.self="closeModal">
         <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -232,7 +217,6 @@ export default {
         const error = ref(null);
         const selectedLogIds = ref([]);
 
-        // 🌟 新增：Filter State
         const selectedRemark = ref('');
 
         const showModal = ref(false);
@@ -244,21 +228,17 @@ export default {
             question: '', answer: '', intent_id: null, department_id: null
         });
 
-        // 🌟 新增：自动提取所有不重复的 Remarks
         const uniqueRemarks = computed(() => {
             if (!fails.value) return [];
-            // map提取remark -> filter去空 -> Set去重 -> 排序
             const remarks = fails.value.map(f => f.remark).filter(r => r);
             return [...new Set(remarks)].sort();
         });
 
-        // 🌟 新增：过滤后的列表
         const filteredFails = computed(() => {
             if (!selectedRemark.value) return fails.value;
             return fails.value.filter(f => f.remark === selectedRemark.value);
         });
 
-        // 🌟 修改：全选逻辑改为“全选当前可见的”
         const isAllSelected = computed(() => {
             return filteredFails.value.length > 0 &&
                    filteredFails.value.every(f => selectedLogIds.value.includes(f.id));
@@ -272,7 +252,6 @@ export default {
                 });
                 fails.value = response.data;
 
-                // 顺便刷新一下全局状态的红点
                 refresh();
             } catch (err) {
                 error.value = 'Failed to load logs.';
@@ -284,14 +263,10 @@ export default {
 
         const toggleSelectAll = () => {
             if (isAllSelected.value) {
-                // 取消全选：从 selectedLogIds 中移除当前可见的 IDs
-                // 这样不会影响到其他被过滤掉但已选中的项目（虽然在这个简单场景下清空也没事，但这样做更严谨）
                 const visibleIds = filteredFails.value.map(f => f.id);
                 selectedLogIds.value = selectedLogIds.value.filter(id => !visibleIds.includes(id));
             } else {
-                // 全选：把当前可见的所有 IDs 加进去
                 const visibleIds = filteredFails.value.map(f => f.id);
-                // 使用 Set 去重，防止重复添加
                 selectedLogIds.value = [...new Set([...selectedLogIds.value, ...visibleIds])];
             }
         };
@@ -336,7 +311,7 @@ export default {
 
         return {
             fails, loading, error, selectedLogIds,
-            selectedRemark, uniqueRemarks, filteredFails, isAllSelected, // Export new refs
+            selectedRemark, uniqueRemarks, filteredFails, isAllSelected,
             toggleSelectAll, markSelectedAsChecked,
             showModal, isSaving, modalError, form, currentLogId,
             openConvertModal, closeModal, saveConvertedFAQ, intents, departments

@@ -6,7 +6,6 @@
         <div class="card auth-card shadow-lg border-0 p-4 animate-fade-up">
             <div class="card-body">
 
-                <!-- Header -->
                 <div class="text-center mb-4">
                     <div class="icon-box bg-success bg-opacity-10 text-success mx-auto mb-3">
                         <i class="bi bi-person-plus-fill fs-2"></i>
@@ -15,22 +14,18 @@
                     <p class="text-muted small">Join us to manage the chatbot</p>
                 </div>
 
-                <!-- Error Alert -->
                 <div v-if="error" class="alert alert-danger d-flex align-items-center p-2 mb-3 small" role="alert">
                     <i class="bi bi-exclamation-triangle-fill me-2"></i>
                     <div>{{ error }}</div>
                 </div>
 
-                <!-- Success Alert -->
                 <div v-if="registerStatus === 'success'" class="alert alert-success p-3 text-center">
                     <h6 class="alert-heading fw-bold mb-1"><i class="bi bi-check-circle-fill"></i> Success!</h6>
                     <p class="small mb-2">Your account has been created.</p>
                     <router-link to="/login" class="btn btn-sm btn-success w-100">Go to Login</router-link>
                 </div>
 
-                <!-- Form -->
                 <form v-else @submit.prevent="handleRegister" novalidate>
-                    <!-- Name -->
                     <div class="mb-3">
                         <label class="form-label small fw-bold text-secondary">Full Name</label>
                         <div class="input-group">
@@ -46,7 +41,6 @@
                         </div>
                     </div>
 
-                    <!-- Email -->
                     <div class="mb-3">
                         <label class="form-label small fw-bold text-secondary">Email Address</label>
                         <div class="input-group">
@@ -62,7 +56,6 @@
                         </div>
                     </div>
 
-                    <!-- Password -->
                     <div class="mb-4">
                         <label class="form-label small fw-bold text-secondary">Password</label>
                         <div class="input-group">
@@ -92,7 +85,6 @@
                     </div>
                 </form>
 
-                <!-- Footer -->
                 <div class="text-center mt-4 pt-3 border-top">
                     <p class="small text-muted mb-2">
                         Already have an account?
@@ -119,13 +111,13 @@ const name = ref('');
 const email = ref('');
 const password = ref('');
 const error = ref('');
-const registerStatus = ref('idle'); // 'idle', 'loading', 'success'
+const registerStatus = ref('idle');
 const showPassword = ref(false);
 
 const isLoading = computed(() => registerStatus.value === 'loading');
 
 const handleRegister = async () => {
-    // Basic frontend validation
+
     if (!name.value || !email.value || !password.value) {
         error.value = "Please fill in all fields.";
         return;
@@ -147,7 +139,6 @@ const handleRegister = async () => {
             password: password.value,
         });
 
-        // 注册成功后，不直接跳转，而是显示成功信息让用户点去登录
         registerStatus.value = 'success';
 
     } catch (err) {
@@ -158,7 +149,6 @@ const handleRegister = async () => {
 </script>
 
 <style scoped>
-/* 复用 Login 的样式，保持一致 */
 .auth-layout {
     min-height: 100vh;
     background-color: #f0f2f5;

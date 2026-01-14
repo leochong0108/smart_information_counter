@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Faq;
-use App\Http\Requests\StoreFaqRequest; // 引入刚才创建的 Request
+use App\Http\Requests\StoreFaqRequest;
 use Illuminate\Http\Request;
 
 class FaqController extends Controller
@@ -23,15 +23,12 @@ class FaqController extends Controller
         return response()->json($faq);
     }
 
-    // 使用 StoreFaqRequest 自动处理验证和数据清理
     public function store(StoreFaqRequest $request)
     {
-        // $request->validated() 只会返回规则里验证过的数据
         $faq = Faq::create($request->validated());
         return response()->json($faq, 201);
     }
 
-    // 更新逻辑其实可以用同一个 Request，或者新建 UpdateFaqRequest
     public function update(StoreFaqRequest $request, $id)
     {
         $faq = Faq::find($id);

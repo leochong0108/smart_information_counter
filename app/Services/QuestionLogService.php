@@ -9,10 +9,6 @@ use Illuminate\Support\Facades\Log;
 
 class QuestionLogService
 {
-    /**
-     * 核心业务：将一条日志转化为 FAQ，并标记该日志为已处理
-     * 使用事务确保原子性
-     */
 
     public function convertLogToFaq(int $logId, array $faqData)
     {
@@ -34,17 +30,11 @@ class QuestionLogService
         });
     }
 
-    /**
-     * 批量标记为已读
-     */
     public function markLogsAsChecked(array $ids)
     {
         return QuestionLog::whereIn('id', $ids)->update(['checked' => true]);
     }
 
-    /**
-     * 管理员回复人工协助请求
-     */
     public function replyToRequest(int $logId, string $replyText)
     {
         $log = QuestionLog::find($logId);

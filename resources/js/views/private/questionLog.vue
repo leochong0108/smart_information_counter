@@ -1,7 +1,6 @@
 <template>
 <div class="container-fluid py-4">
 
-    <!-- 1. Header & Actions -->
     <div class="row align-items-center mb-4">
         <div class="col-12 col-md-10 mb-3 mb-md-0">
             <h1 class="h3 mb-0 text-gray-800">
@@ -16,11 +15,9 @@
         </div>
     </div>
 
-    <!-- 2. Filters -->
     <div class="card shadow-sm mb-4 border-0">
         <div class="card-body p-3">
             <div class="row g-3">
-                <!-- Search Text -->
                 <div class="col-12 col-md-3">
                     <div class="input-group">
                         <span class="input-group-text bg-light border-end-0"><i class="bi bi-search"></i></span>
@@ -33,7 +30,6 @@
                     </div>
                 </div>
 
-                <!-- Intent Filter -->
                 <div class="col-6 col-md-2">
                     <select v-model="selectedIntentId" class="form-select">
                         <option value="">All Intents</option>
@@ -42,7 +38,6 @@
                     </select>
                 </div>
 
-                <!-- Department Filter -->
                 <div class="col-6 col-md-3">
                     <select v-model="selectedDepartmentId" class="form-select">
                         <option value="">All Departments</option>
@@ -51,7 +46,6 @@
                     </select>
                 </div>
 
-                <!-- Status Filter -->
                 <div class="col-6 col-md-2">
                     <select v-model="selectedStatus" class="form-select">
                         <option value="">All Status</option>
@@ -60,7 +54,6 @@
                     </select>
                 </div>
 
-                <!-- 🌟 新增：Remark Filter -->
                 <div class="col-6 col-md-2">
                     <select v-model="selectedRemark" class="form-select" :disabled="!uniqueRemarks.length">
                         <option value="">All Remarks</option>
@@ -71,12 +64,10 @@
         </div>
     </div>
 
-    <!-- Loading State -->
     <div v-if="loading" class="text-center py-5">
         <div class="spinner-border text-primary" role="status"></div>
     </div>
 
-    <!-- Empty State -->
     <div v-else-if="!filteredLogs.length" class="text-center py-5 text-muted">
         <i class="bi bi-journal-x fs-1"></i>
         <p>No logs found matching your criteria.</p>
@@ -84,11 +75,9 @@
 
     <div v-else>
 
-        <!-- 📱 MOBILE VIEW: Cards -->
         <div class="d-block d-md-none">
             <div v-for="log in filteredLogs" :key="log.id" class="card shadow-sm mb-3 border-0">
                 <div class="card-body">
-                    <!-- Top Row: ID & Status -->
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <span class="badge bg-light text-secondary">#{{ log.id }}</span>
                         <span v-if="log.status === 1" class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">
@@ -99,7 +88,6 @@
                         </span>
                     </div>
 
-                    <!-- Remark Badge (如果在 Mobile 上也想看到具体原因) -->
                     <div v-if="log.remark && log.status === 0" class="d-flex justify-content-between align-items-center mb-2">
                         <span class=" text-secondary text-wrap text-start lh-sm">.</span>
                         <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 text-wrap text-start lh-sm">
@@ -107,13 +95,11 @@
                         </span>
                     </div>
 
-                    <!-- Question (User) -->
                     <div class="mb-3">
                         <small class="text-uppercase text-muted fw-bold" style="font-size: 0.7rem;">User Question</small>
                         <div class="fw-bold text-dark">{{ log.question_text }}</div>
                     </div>
 
-                    <!-- Answer (AI) -->
                     <div class="mb-3">
                         <small class="text-uppercase text-muted fw-bold" style="font-size: 0.7rem;">AI Answer</small>
                         <div v-if="log.answer_text" class="scrollable-content bg-light p-3 rounded text-secondary border">
@@ -124,7 +110,6 @@
                         </div>
                     </div>
 
-                    <!-- Metadata Tags -->
                     <div class="d-flex flex-wrap gap-2 border-top pt-2">
                         <span v-if="log.intent" class="badge bg-info bg-opacity-10 text-info text-wrap text-start lh-sm">
                             <i class="bi bi-diagram-2"></i> {{ log.intent.intent_name }}
@@ -142,7 +127,6 @@
             </div>
         </div>
 
-        <!-- 💻 DESKTOP/TABLET VIEW: Table -->
         <div class="d-none d-md-block card shadow border-0 rounded-3 overflow-hidden">
             <div class="table-responsive">
                 <table class="table table-hover align-top mb-0">
@@ -161,7 +145,6 @@
                             <td class="px-3 fw-bold text-secondary">{{ index + 1 }}.</td>
                             <td class="px-3 fw-bold text-secondary">{{ log.id }}</td>
 
-                            <!-- Status & Remark -->
                             <td class="px-3">
                                 <div class="d-flex flex-column gap-1 align-items-start">
                                     <span v-if="log.status === 1" class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">
@@ -171,28 +154,24 @@
                                         <i class="bi bi-x-circle"></i> Failed
                                     </span>
 
-                                    <!-- 🌟 显示 Remark -->
                                     <span v-if="log.remark && log.status === 0" class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 text-wrap text-start mt-1" style="font-size: 0.75rem;">
                                         {{ log.remark }}
                                     </span>
                                 </div>
                             </td>
 
-                            <!-- Question -->
                             <td class="px-3">
                                 <div class="table-scrollable-content fw-medium text-dark" style="max-height: 80px;">
                                     {{ log.question_text }}
                                 </div>
                             </td>
 
-                            <!-- Answer -->
                             <td class="px-3">
                                 <div class="table-scrollable-content text-secondary small">
                                     {{ log.answer_text || '-' }}
                                 </div>
                             </td>
 
-                            <!-- Context -->
                             <td class="px-3">
                                 <div class="d-flex flex-column gap-1">
                                     <div v-if="log.intent" class="d-flex align-items-center">
@@ -239,13 +218,12 @@ import { useDataFetcher } from '../../composables/useDataFetcher';
         const error = ref(null);
         const searchTerm = ref('');
 
-        // Data Fetching
         const {
             intents,
             departments,
-            loading, // 注意：这里 loading 会和 getLogs 里的 loading 冲突，建议重命名或者只用其中一个
-            getIntents,     // <--- 新增
-            getDepartments  // <--- 新增
+            loading,
+            getIntents,
+            getDepartments
         } = useDataFetcher();
 
         // Filters
@@ -268,10 +246,8 @@ import { useDataFetcher } from '../../composables/useDataFetcher';
             };
         };
 
-        // 🌟 自动提取不重复的 Remarks
         const uniqueRemarks = computed(() => {
             if (!logs.value.length) return [];
-            // map提取 -> filter去空 -> Set去重 -> sort排序
             const remarks = logs.value.map(l => l.remark).filter(r => r);
             return [...new Set(remarks)].sort();
         });
@@ -279,7 +255,7 @@ import { useDataFetcher } from '../../composables/useDataFetcher';
         const exportLogs = () => {
             if (!logs.value.length) return Swal.fire('Info', 'No data', 'info');
             try {
-                const data = filteredLogs.value.map(l => ({ // 🌟 Export filteredLogs, not all logs
+                const data = filteredLogs.value.map(l => ({
                     ID: l.id,
                     Question: l.question_text,
                     Answer: l.answer_text,
@@ -296,7 +272,6 @@ import { useDataFetcher } from '../../composables/useDataFetcher';
             } catch (e) { Swal.fire('Error', 'Export failed', 'error'); }
         };
 
-        // Filter Logic
         const filteredLogs = computed(() => {
             let data = logs.value;
 
@@ -323,7 +298,7 @@ import { useDataFetcher } from '../../composables/useDataFetcher';
                 const isSuccess = selectedStatus.value === 'Success';
                 data = data.filter(l => isSuccess ? l.status === 1 : l.status !== 1);
             }
-            // 🌟 Remark Filter
+
             if (selectedRemark.value) {
                 data = data.filter(l => l.remark === selectedRemark.value);
             }
@@ -335,7 +310,7 @@ import { useDataFetcher } from '../../composables/useDataFetcher';
             getLogs();
             getIntents();
             getDepartments();
-        }); // DataFetcher handles intents/departments
+        });
 
 </script>
 

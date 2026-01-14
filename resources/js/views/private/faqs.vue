@@ -1,7 +1,6 @@
 <template>
 <div class="container-fluid py-4">
 
-    <!-- 1. Header & Actions -->
     <div class="row align-items-center mb-4">
         <div class="col-12 col-md-6 mb-3 mb-md-0">
             <h1 class="h3 mb-0 text-gray-800">FAQs Management</h1>
@@ -20,7 +19,6 @@
         </div>
     </div>
 
-    <!-- 2. Filter Section -->
     <div class="card shadow-sm mb-4 border-0">
         <div class="card-body p-3">
             <div class="row g-3">
@@ -48,12 +46,10 @@
         </div>
     </div>
 
-    <!-- Loading State -->
     <div v-if="loading" class="text-center py-5">
         <div class="spinner-border text-primary" role="status"></div>
     </div>
 
-    <!-- Empty State -->
     <div v-else-if="!filteredFAQs.length" class="text-center py-5 text-muted">
         <i class="bi bi-inbox fs-1"></i>
         <p>No FAQs found.</p>
@@ -61,11 +57,9 @@
 
     <div v-else>
 
-        <!-- 📱 MOBILE VIEW -->
         <div class="d-block d-md-none">
             <div v-for="FAQ in filteredFAQs" :key="FAQ.id" class="card shadow-sm mb-3 border-0">
                 <div class="card-body">
-                    <!-- Actions -->
                     <div class="d-flex justify-content-between align-items-start mb-2">
                         <span class="badge bg-light text-secondary">#{{ FAQ.id }}</span>
                         <div class="btn-group">
@@ -96,7 +90,6 @@
             </div>
         </div>
 
-        <!-- 💻 DESKTOP VIEW -->
         <div class="d-none d-md-block card shadow border-0 rounded-3 overflow-hidden">
             <div class="table-responsive">
                 <table class="table table-hover align-top mb-0">
@@ -151,7 +144,6 @@
 
     </div>
 
-    <!-- 4. Modal (Form) -->
     <div v-if="showModal" class="modal-backdrop fade show"></div>
     <div v-if="showModal" class="modal fade show d-block" tabindex="-1" @click.self="closeModal">
         <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -173,7 +165,6 @@
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Intent</label>
-                                <!-- 依赖 intents 数据 -->
                                 <select v-model="form.intent_id" class="form-select">
                                     <option :value="null">None</option>
                                     <option v-for="i in intents" :key="i.id" :value="i.id">{{ i.intent_name }}</option>
@@ -181,7 +172,6 @@
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Department</label>
-                                <!-- 依赖 departments 数据 -->
                                 <select v-model="form.department_id" class="form-select">
                                     <option :value="null">None</option>
                                     <option v-for="d in departments" :key="d.id" :value="d.id">{{ d.name }}</option>
@@ -213,15 +203,11 @@ import { useDataFetcher } from '../../composables/useDataFetcher';
 import { useExcelImport } from '../../composables/useExcelImport';
 import { useCrud } from '../../composables/useCrud';
 
-// 1. 数据获取
-// FAQs 列表页面需要 Intents 和 Departments 来做筛选和显示
 const { intents, FAQs, departments, getFAQs, getIntents, getDepartments, loading } = useDataFetcher();
 
-// 2. Excel 导入
 const { importFileRef, triggerImport, handleFileUpload } = useExcelImport();
 const onImportFileChange = (event) => handleFileUpload(event, 'faq', getFAQs);
 
-// 3. 筛选逻辑
 const searchTerm = ref('');
 const selectedIntentId = ref('');
 const selectedDepartmentId = ref('');
@@ -229,7 +215,6 @@ const selectedDepartmentId = ref('');
 const filteredFAQs = computed(() => {
     let data = FAQs.value;
 
-    // Search
     if (searchTerm.value) {
         const lower = searchTerm.value.toLowerCase();
         data = data.filter(f =>
@@ -239,7 +224,6 @@ const filteredFAQs = computed(() => {
         );
     }
 
-    // Filters
     if (selectedIntentId.value !== '') {
         const val = selectedIntentId.value === null ? null : parseInt(selectedIntentId.value);
         data = data.filter(f => f.intent_id === val);
@@ -251,7 +235,6 @@ const filteredFAQs = computed(() => {
     return data;
 });
 
-// 4. CRUD 逻辑 (核心瘦身)
 const defaultForm = {
     question: '',
     answer: '',
@@ -278,7 +261,6 @@ const {
     deleteItem
 } = useCrud('FAQ', apiEndpoints, defaultForm, getFAQs);
 
-// 5. Excel 导出
 const exportFAQs = () => {
     if (!FAQs.value.length) return Swal.fire('Info', 'No data', 'info');
     const data = FAQs.value.map(f => ({
@@ -292,7 +274,6 @@ const exportFAQs = () => {
 };
 
 onMounted(() => {
-    // 必须并行加载所有数据
     getFAQs();
     getDepartments();
     getIntents();
@@ -300,7 +281,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* 保持原有样式 */
 .text-purple { color: #eae8ee !important; }
 .bg-purple { background-color: #6f42c1 !important; }
 .border-purple { border-color: #6f42c1 !important; }
@@ -318,7 +298,6 @@ onMounted(() => {
     z-index: 1050;
 }
 
-/* 电脑端表格内滚动 */
 .table-scrollable-content {
     max-height: 120px;
     overflow-y: auto;
@@ -330,7 +309,6 @@ onMounted(() => {
 .table-scrollable-content::-webkit-scrollbar { width: 4px; }
 .table-scrollable-content::-webkit-scrollbar-thumb { background-color: #ced4da; border-radius: 4px; }
 
-/* 手机端 Answer 滚动 */
 .scrollable-answer {
     max-height: 200px;
     overflow-y: auto;

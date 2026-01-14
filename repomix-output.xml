@@ -652,1333 +652,6 @@ class StatisticController extends Controller
 }
 </file>
 
-<file path="app/Http/Requests/StoreDepartmentRequest.php">
-<?php
-
-namespace App\Http\Requests;
-
-use Illuminate\Foundation\Http\FormRequest;
-
-class StoreDepartmentRequest extends FormRequest
-{
-    public function authorize(): bool
-    {
-        return true; // 允许所有登录用户操作
-    }
-
-    public function rules(): array
-    {
-        return [
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'location' => 'nullable|string',
-            'contact_info' => 'nullable|string',
-        ];
-    }
-}
-</file>
-
-<file path="app/Http/Requests/StoreFaqRequest.php">
-<?php
-
-namespace App\Http\Requests;
-
-use Illuminate\Foundation\Http\FormRequest;
-
-class StoreFaqRequest extends FormRequest
-{
-    public function authorize(): bool
-    {
-        return true; // 允许所有登录用户
-    }
-
-    public function rules(): array
-    {
-        return [
-            'question' => 'required|string|max:255',
-            'answer' => 'required|string',
-            'intent_id' => 'nullable', // 允许空
-            'department_id' => 'nullable',
-        ];
-    }
-
-    // 数据预处理：处理前端传来的 "null" 字符串问题
-    protected function prepareForValidation()
-    {
-        $this->merge([
-            'intent_id' => ($this->intent_id === 'null' || $this->intent_id === '') ? null : $this->intent_id,
-            'department_id' => ($this->department_id === 'null' || $this->department_id === '') ? null : $this->department_id,
-        ]);
-    }
-}
-</file>
-
-<file path="app/Http/Requests/StoreIntentRequest.php">
-<?php
-
-namespace App\Http\Requests;
-
-use Illuminate\Foundation\Http\FormRequest;
-
-class StoreIntentRequest extends FormRequest
-{
-    public function authorize(): bool
-    {
-        return true; // 允许所有登录用户操作
-    }
-
-    public function rules(): array
-    {
-        return [
-            'intent_name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'department_id' => 'nullable|exists:departments,id',
-        ];
-    }
-
-    /**
-     * 在验证之前清理数据
-     * 解决前端传 "null" 字符串的问题
-     */
-    protected function prepareForValidation()
-    {
-        $this->merge([
-            'department_id' => ($this->department_id === 'null' || $this->department_id === '') ? null : $this->department_id,
-        ]);
-    }
-}
-</file>
-
-<file path="app/Services/DashboardService.php">
-<?php
-
-namespace App\Services;
-
-use App\Models\QuestionLog;
-use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
-
-class DashboardService
-{
-    /**
-     * 获取 Top 10 FAQ, Intent, Department
-     */
-    public function getTopStats($filter, $startDate, $endDate)
-    {
-        // 1. 基础 Query
-        $baseQuery = QuestionLog::where('status', true);
-        $this->applyDateFilter($baseQuery, $filter, $startDate, $endDate);
-
-        // 2. Clone query to avoid mutation issues
-        $queryFaq = clone $baseQuery;
-        $queryIntent = clone $baseQuery;
-        $queryDepartment = clone $baseQuery;
-
-        return [
-            'Faq' => $queryFaq
-                ->select('faqs.question', DB::raw('COUNT(question_logs.faq_id) as total'))
-                ->join('faqs', 'question_logs.faq_id', '=', 'faqs.id')
-                ->groupBy('faqs.question', 'faqs.id')
-                ->orderByDesc('total')
-                ->limit(10)
-                ->get(),
-            'Intent' => $queryIntent
-                ->select('intents.intent_name', DB::raw('COUNT(question_logs.intent_id) as total'))
-                ->join('intents', 'question_logs.intent_id', '=', 'intents.id')
-                ->groupBy('intents.intent_name', 'intents.id')
-                ->orderByDesc('total')
-                ->get(),
-            'Department' => $queryDepartment
-                ->select('departments.name', DB::raw('COUNT(question_logs.department_id) as total'))
-                ->join('departments', 'question_logs.department_id', '=', 'departments.id')
-                ->groupBy('departments.name', 'departments.id')
-                ->orderByDesc('total')
-                ->get()
-        ];
-    }
-
-    /**
-     * 获取部门趋势 (Chart Data)
-     */
-    public function getDepartmentTrend($filter, $startDate, $endDate)
-    {
-        $query = QuestionLog::query()
-            ->join('departments', 'question_logs.department_id', '=', 'departments.id')
-            ->where('question_logs.status', true);
-
-        $this->applyDateFilter($query, $filter, $startDate, $endDate);
-
-        // 决定时间格式
-        $selectFormat = "DATE_FORMAT(question_logs.created_at, '%Y-%m-%d') as time_unit";
-        if ($filter === 'daily') {
-            $selectFormat = "DATE_FORMAT(question_logs.created_at, '%H:00') as time_unit";
-        } elseif ($filter === 'yearly') {
-            $selectFormat = "DATE_FORMAT(question_logs.created_at, '%Y-%m') as time_unit";
-        }
-
-        $trends = $query->select(
-                'departments.name as dept_name',
-                DB::raw($selectFormat),
-                DB::raw('COUNT(question_logs.id) as total')
-            )
-            ->groupBy('departments.name', 'time_unit')
-            ->orderBy('time_unit', 'asc')
-            ->get();
-
-        // 格式化数据给前端
-        $labels = $trends->pluck('time_unit')->unique()->values()->all();
-        $datasets = [];
-        $grouped = $trends->groupBy('dept_name');
-
-        foreach ($grouped as $deptName => $records) {
-            $dataPoints = [];
-            foreach ($labels as $label) {
-                $record = $records->firstWhere('time_unit', $label);
-                $dataPoints[] = $record ? $record->total : 0;
-            }
-            $datasets[] = ['label' => $deptName, 'data' => $dataPoints];
-        }
-
-        return ['labels' => $labels, 'datasets' => $datasets];
-    }
-
-    /**
-     * 获取核心指标 (Total, Success, Fail)
-     */
-    public function getMetrics($filter, $startDate, $endDate)
-    {
-        $query = QuestionLog::query();
-        $this->applyDateFilter($query, $filter, $startDate, $endDate);
-
-        // 使用 Clone 分别计算
-        $totalFails = (clone $query)
-            ->where('status', false)
-            ->where('remark', 'No matching knowledge found') // 仅计算知识库缺失的
-            ->count();
-
-        $totalSuccess = (clone $query)->where('status', true)->count();
-
-        return [
-            'totalFail' => $totalFails,
-            'totalSuccess' => $totalSuccess,
-            'totalQuestions' => $totalFails + $totalSuccess,
-        ];
-    }
-
-    /**
-     * 私有辅助方法：应用日期过滤
-     */
-    private function applyDateFilter($query, $filter, $startDate, $endDate)
-    {
-        switch ($filter) {
-            case 'daily':
-                $query->whereDate('question_logs.created_at', Carbon::today());
-                break;
-            case 'weekly':
-                $query->whereBetween('question_logs.created_at', [Carbon::now()->startOfWeek(), Carbon::now()->endOfWeek()]);
-                break;
-            case 'monthly':
-                $query->whereMonth('question_logs.created_at', Carbon::now()->month)
-                    ->whereYear('question_logs.created_at', Carbon::now()->year);
-                break;
-            case 'yearly':
-                $query->whereYear('question_logs.created_at', Carbon::now()->year);
-                break;
-            case 'custom-range':
-                if ($startDate && $endDate) {
-                    $query->whereBetween('question_logs.created_at', [
-                        Carbon::parse($startDate)->startOfDay(),
-                        Carbon::parse($endDate)->endOfDay()
-                    ]);
-                }
-                break;
-        }
-    }
-}
-</file>
-
-<file path="app/Services/QuestionLogService.php">
-<?php
-
-namespace App\Services;
-
-use App\Models\QuestionLog;
-use App\Models\Faq;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-
-class QuestionLogService
-{
-    /**
-     * 核心业务：将一条日志转化为 FAQ，并标记该日志为已处理
-     * 使用事务确保原子性
-     */
-    public function convertLogToFaq(int $logId, array $faqData)
-    {
-        return DB::transaction(function () use ($logId, $faqData) {
-            // 1. 查找日志
-            $log = QuestionLog::findOrFail($logId);
-
-            // 2. 创建 FAQ
-            $faq = Faq::create($faqData);
-
-            // 3. 更新日志状态 (关联 FAQ ID，标记为 checked)
-            $log->update([
-                'checked' => true,
-                'faq_id' => $faq->id,
-                // 可选：如果转化成功，也许应该把 status 改为 true?
-                // 或者保留原始 status=false 表示这曾经是个失败的记录
-            ]);
-
-            return [
-                'faq' => $faq,
-                'log' => $log
-            ];
-        });
-    }
-
-    /**
-     * 批量标记为已读
-     */
-    public function markLogsAsChecked(array $ids)
-    {
-        return QuestionLog::whereIn('id', $ids)->update(['checked' => true]);
-    }
-
-    /**
-     * 管理员回复人工协助请求
-     */
-    public function replyToRequest(int $logId, string $replyText)
-    {
-        $log = QuestionLog::find($logId);
-
-        if ($log) {
-            $log->update([
-                'admin_reply' => $replyText,
-                'replied_at' => now()
-            ]);
-            return true;
-        }
-
-        return false;
-    }
-}
-</file>
-
-<file path="resources/js/composables/useAIAnalysis.js">
-import { ref } from 'vue';
-import axios from 'axios';
-
-export function useAIAnalysis() {
-    const analyzing = ref(false);
-    const aiSummary = ref("");
-    const token = localStorage.getItem('sanctum_token');
-
-    const generateAnalysis = async (dataA, dataB, isCompareMode, p1Label, p2Label) => {
-        analyzing.value = true;
-        try {
-            const payload = {
-                mode: isCompareMode.value ? 'comparison' : 'single',
-                period1: {
-                    filter: p1Label.value,
-                    stats: dataA.stats,
-                    topIntent: dataA.faqs.Intent?.[0]?.intent_name
-                },
-                period2: isCompareMode.value ? {
-                    range: p2Label.value,
-                    stats: dataB.stats,
-                    topIntent: dataB.faqs.Intent?.[0]?.intent_name
-                } : null
-            };
-
-            const res = await axios.post('/api/generate-summary',
-                { stats: payload },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-            aiSummary.value = res.data.summary;
-        } catch(e) {
-            console.error(e);
-            aiSummary.value = "Failed to generate AI analysis.";
-        } finally {
-            analyzing.value = false;
-        }
-    };
-
-    return {
-        analyzing,
-        aiSummary,
-        generateAnalysis
-    };
-}
-</file>
-
-<file path="resources/js/composables/useChatLogic.js">
-import { ref, computed } from 'vue';
-import axios from 'axios';
-
-export function useChatLogic() {
-    const messages = ref([]);
-    const FAQs = ref([]);
-    const isLoading = ref(false);
-    const token = localStorage.getItem('sanctum_token');
-    let pollingInterval = null;
-
-    // 获取 Top 10 FAQ
-    const fetchTopFAQs = async () => {
-        try {
-            const res = await axios.get('/api/top10ForChat', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            FAQs.value = res.data;
-        } catch (e) {
-            console.error("Failed to fetch FAQs", e);
-        }
-    };
-
-    // 发送消息
-    const sendMessageToApi = async (text) => {
-        if (!text.trim()) return;
-
-        // 1. UI 立即显示用户消息
-        messages.value.push({ from: "user", text });
-        isLoading.value = true;
-
-        try {
-            // 2. API 请求
-            const res = await axios.post('/api/chat',
-                { message: text },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-
-            // 3. UI 显示 AI 回复
-            messages.value.push({
-                from: "ai",
-                text: res.data.reply,
-                isFailure: res.data.status === false,
-                logId: res.data.log_id,
-                waitingForHuman: false,
-                replied: false
-            });
-
-        } catch (error) {
-            messages.value.push({ from: "ai", text: "Sorry, network error occurred." });
-        } finally {
-            isLoading.value = false;
-        }
-    };
-
-    // 请求人工协助
-    const requestHumanHelp = async (index, logId) => {
-        try {
-            await axios.post('/api/request-help', { log_id: logId });
-
-            // 更新 UI 状态
-            if (messages.value[index]) {
-                messages.value[index].waitingForHuman = true;
-            }
-            messages.value.push({ from: 'ai', text: '<i>Request sent! Please wait for staff...</i>' });
-
-            // 开始轮询
-            startPolling(logId);
-        } catch (e) {
-            alert("Failed to request help.");
-        }
-    };
-
-    // 轮询管理员回复
-    const startPolling = (logId) => {
-        if (pollingInterval) clearInterval(pollingInterval);
-
-        pollingInterval = setInterval(async () => {
-            try {
-                const res = await axios.post('/api/check-reply', { log_id: logId });
-                if (res.data.replied) {
-                    clearInterval(pollingInterval);
-
-                    // 找到原始消息更新状态
-                    const originalMsg = messages.value.find(m => m.logId === logId);
-                    if (originalMsg) {
-                        originalMsg.waitingForHuman = false;
-                        originalMsg.replied = true;
-                    }
-
-                    // 添加回复消息
-                    messages.value.push({
-                        from: 'ai',
-                        text: `👨‍💼 <strong>Staff Reply:</strong> ${res.data.reply}`
-                    });
-                }
-            } catch (e) { console.error("Polling error"); }
-        }, 3000);
-    };
-
-    const stopPolling = () => {
-        if (pollingInterval) clearInterval(pollingInterval);
-    };
-
-    // 计算属性：只显示前 3 个 FAQ
-    const visibleFAQs = computed(() => FAQs.value.slice(0, 3));
-
-    return {
-        messages,
-        FAQs,
-        visibleFAQs,
-        isLoading,
-        fetchTopFAQs,
-        sendMessageToApi,
-        requestHumanHelp,
-        stopPolling
-    };
-}
-</file>
-
-<file path="resources/js/composables/useCrud.js">
-import { ref, reactive } from 'vue';
-import axios from 'axios';
-import Swal from 'sweetalert2';
-
-/**
- * 通用 CRUD 逻辑封装
- * @param {string} resourceName - 资源名称 (例如 "Department", "FAQ")
- * @param {object} apiEndpoints - API 地址定义 { create, update(id), delete(id) }
- * @param {object} defaultFormState - 表单的初始空状态
- * @param {function} refreshListCallback - 操作成功后刷新列表的回调函数
- */
-export function useCrud(resourceName, apiEndpoints, defaultFormState, refreshListCallback) {
-
-    // 1. 状态定义
-    const showModal = ref(false);
-    const isEditMode = ref(false);
-    const isSaving = ref(false);
-    const modalError = ref('');
-    const currentId = ref(null);
-    const token = localStorage.getItem('sanctum_token');
-
-    // 创建响应式表单，初始值为传入的默认值
-    // 使用 JSON 解析深拷贝，防止引用污染
-    const form = reactive(JSON.parse(JSON.stringify(defaultFormState)));
-
-    // 2. 打开新建弹窗
-    const openCreateModal = () => {
-        isEditMode.value = false;
-        currentId.value = null;
-        modalError.value = '';
-
-        // 重置表单
-        Object.keys(defaultFormState).forEach(key => {
-            form[key] = defaultFormState[key];
-        });
-
-        showModal.value = true;
-    };
-
-    // 3. 打开编辑弹窗
-    const openEditModal = (itemData) => {
-        isEditMode.value = true;
-        currentId.value = itemData.id;
-        modalError.value = '';
-
-        // 填充表单 (只填充 defaultFormState 中定义的字段)
-        Object.keys(defaultFormState).forEach(key => {
-            form[key] = itemData[key] ?? '';
-        });
-
-        showModal.value = true;
-    };
-
-    const closeModal = () => {
-        showModal.value = false;
-    };
-
-    // 4. 保存逻辑 (Create / Update)
-    const saveItem = async () => {
-        if (!token) return;
-        isSaving.value = true;
-        modalError.value = '';
-
-        try {
-            if (isEditMode.value) {
-                // Update
-                const url = apiEndpoints.update(currentId.value);
-                await axios.put(url, form, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                Swal.fire('Updated', `${resourceName} details updated.`, 'success');
-            } else {
-                // Create
-                const url = apiEndpoints.create;
-                await axios.post(url, form, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                Swal.fire('Created', `New ${resourceName} added.`, 'success');
-            }
-
-            closeModal();
-            if (refreshListCallback) await refreshListCallback();
-
-        } catch (err) {
-            console.error(err);
-            modalError.value = err.response?.data?.message || 'Operation failed.';
-        } finally {
-            isSaving.value = false;
-        }
-    };
-
-    // 5. 删除逻辑
-    const deleteItem = async (id) => {
-        const res = await Swal.fire({
-            title: 'Are you sure?',
-            text: `Deleting a ${resourceName} may affect associated data!`,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            confirmButtonText: 'Yes, delete it!'
-        });
-
-        if (res.isConfirmed && token) {
-            try {
-                const url = apiEndpoints.delete(id);
-                await axios.delete(url, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                Swal.fire('Deleted!', `${resourceName} removed.`, 'success');
-                if (refreshListCallback) await refreshListCallback();
-            } catch (err) {
-                Swal.fire('Error', 'Delete failed.', 'error');
-            }
-        }
-    };
-
-    return {
-        form,
-        showModal,
-        isEditMode,
-        isSaving,
-        modalError,
-        openCreateModal,
-        openEditModal,
-        closeModal,
-        saveItem,
-        deleteItem
-    };
-}
-</file>
-
-<file path="resources/js/composables/useDashboardData.js">
-import { reactive, ref, computed, watch } from 'vue';
-import axios from 'axios';
-
-export function useDashboardData() {
-    const token = localStorage.getItem('sanctum_token');
-    const loading = ref(false);
-    const isCompareMode = ref(false);
-
-    // 筛选状态
-    const filterA = reactive({ type: 'all-time', start: null, end: null });
-    const filterB = reactive({ type: 'all-time', start: null, end: null });
-
-    // 数据容器
-    const dataA = reactive({ faqs: {}, stats: {}, trend: { labels: [], datasets: [] } });
-    const dataB = reactive({ faqs: {}, stats: {}, trend: { labels: [], datasets: [] } });
-
-    // 辅助：随机颜色
-    const getRandomColor = () => '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
-
-    // 核心：获取数据
-    const fetchDataInternal = async (filterType, startDate, endDate) => {
-        let q = `?filter=${filterType}`;
-        if (filterType === 'custom-range' && startDate && endDate) {
-            q += `&startDate=${startDate}&endDate=${endDate}`;
-        }
-        try {
-            const [resFaqs, resTrend, resStats] = await Promise.all([
-                axios.get(`/api/top10Faqs${q}`, { headers: { Authorization: `Bearer ${token}` } }),
-                axios.get(`/api/department-trend${q}`, { headers: { Authorization: `Bearer ${token}` } }),
-                axios.get(`/api/getDashboardMetrics${q}`, { headers: { Authorization: `Bearer ${token}` } })
-            ]);
-
-            // 给 Trend 数据加上样式
-            const ds = resTrend.data.datasets ? resTrend.data.datasets.map(d => ({
-                ...d,
-                borderColor: getRandomColor(),
-                backgroundColor: 'transparent',
-                tension: 0.3, borderWidth: 2, pointRadius: 3
-            })) : [];
-
-            return {
-                faqs: resFaqs.data,
-                stats: resStats.data,
-                trend: { labels: resTrend.data.labels || [], datasets: ds }
-            };
-        } catch (e) {
-            console.error(e);
-            return { faqs: {}, stats: {}, trend: { labels: [], datasets: [] } };
-        }
-    };
-
-    // 触发搜索
-    const handleSearch = async () => {
-        if (filterA.type === 'custom-range' && (!filterA.start || !filterA.end)) return;
-        loading.value = true;
-
-        // 并行加载 A 和 B (如果需要)
-        const promises = [fetchDataInternal(filterA.type, filterA.start, filterA.end)];
-        if (isCompareMode.value) {
-            promises.push(fetchDataInternal(filterB.type, filterB.start, filterB.end));
-        }
-
-        const [resA, resB] = await Promise.all(promises);
-
-        Object.assign(dataA, resA);
-        if (isCompareMode.value && resB) {
-            Object.assign(dataB, resB);
-        } else {
-            // 清空 B
-            Object.assign(dataB, { faqs: {}, stats: {}, trend: { labels: [], datasets: [] } });
-        }
-
-        loading.value = false;
-    };
-
-    // 格式化图表数据
-    const formatChartData = (sourceData, sourceTrend) => {
-        const intentRaw = sourceData.Intent || [];
-        return {
-            intents: {
-                labels: intentRaw.map(i => i.intent_name),
-                datasets: [{
-                    label: 'Queries',
-                    data: intentRaw.map(i => i.total),
-                    backgroundColor: intentRaw.map(() => getRandomColor()),
-                    barPercentage: 0.6, borderRadius: 4
-                }]
-            },
-            trends: sourceTrend
-        };
-    };
-
-    const chartDataA = computed(() => formatChartData(dataA.faqs, dataA.trend));
-    const chartDataB = computed(() => formatChartData(dataB.faqs, dataB.trend));
-
-    // Label Helpers
-    const getPeriodLabel = (filter) => {
-        if (filter.type === 'custom-range' && filter.start && filter.end) return `${filter.start} ~ ${filter.end}`;
-        return filter.type.charAt(0).toUpperCase() + filter.type.slice(1);
-    };
-    const period1Label = computed(() => getPeriodLabel(filterA));
-    const period2Label = computed(() => getPeriodLabel(filterB));
-
-    // Watchers
-    watch(() => filterA.type, (v) => { if(v !== 'custom-range') handleSearch(); });
-    watch(() => filterB.type, (v) => { if(isCompareMode.value && v !== 'custom-range') handleSearch(); });
-    watch(isCompareMode, (v) => {
-        if (!v) filterA.type = 'all-time'; // Reset or keep logic
-        handleSearch();
-    });
-
-    return {
-        loading, isCompareMode,
-        filterA, filterB,
-        dataA, dataB,
-        chartDataA, chartDataB,
-        period1Label, period2Label,
-        handleSearch
-    };
-}
-</file>
-
-<file path="resources/js/composables/useDataFetcher.js">
-import { ref } from 'vue';
-import axios from 'axios';
-
-export function useDataFetcher() {
-  const intents = ref([]);
-  const FAQs = ref([]);
-  const departments = ref([]);
-  const totalQuestions = ref([]);
-  const isLoading = ref(false);
-  const error = ref(null);
-  const token = localStorage.getItem('sanctum_token');
-
-  // The function you want to share
-       const getIntents = async () => {
-
-        if(token){
-                try {
-                    const response = await axios.get('/api/allIntents', {
-                        headers: { Authorization: `Bearer ${token}` }
-                    });
-                    intents.value = response.data;
-                    console.log(intents.value);
-                } catch (err) {
-                    error.value = err.response?.data?.message || 'Error fetching intents';
-                }
-            };
-        };
-
-        const getFAQs = async () => {
-
-        if(token){
-                try {
-                    const response = await axios.get('/api/allFaqs', {
-                        headers: { Authorization: `Bearer ${token}` }
-                    });
-                    FAQs.value = response.data;
-                    console.log(FAQs.value);
-                } catch (err) {
-                    error.value = err.response?.data?.message || 'Error fetching FAQs';
-                }
-            };
-        };
-
-        const getDepartments = async () => {
-
-        if(token){
-                try {
-                    const response = await axios.get('/api/allDepartments', {
-                        headers: { Authorization: `Bearer ${token}` }
-                    });
-                    departments.value = response.data;
-                    console.log(departments.value);
-                } catch (err) {
-                    error.value = err.response?.data?.message || 'Error fetching departments';
-                }
-            };
-        };
-
-        const getTotalQuestions = async () => {
-
-        if(token){
-                try {
-                    const response = await axios.get('/api/getDashboardMetrics', {
-                        headers: { Authorization: `Bearer ${token}` }
-                    });
-                    totalQuestions.value = response.data;
-                    console.log(totalQuestions.value);
-                } catch (err) {
-                    error.value = err.response?.data?.message || 'Error fetching total questions';
-                }
-            };
-        }
-
-
-
-  return {
-    intents,
-    FAQs,
-    departments,
-    totalQuestions,
-    isLoading,
-    error,
-    getIntents,
-    getFAQs,
-    getDepartments,
-    getTotalQuestions,
-
-  };
-}
-</file>
-
-<file path="resources/js/composables/useExcelImport.js">
-import { ref } from 'vue';
-import axios from 'axios';
-import Swal from 'sweetalert2'; // 假设你使用 SweetAlert2
-
-export function useExcelImport() {
-    const isLoading = ref(false);
-    const importFileRef = ref(null); // 用于绑定隐藏的 input 元素
-    const token = localStorage.getItem('sanctum_token');
-
-    // 1. 触发文件选择框
-    const triggerImport = () => {
-        if (importFileRef.value) {
-            importFileRef.value.click();
-        }
-    };
-
-    // 2. 处理文件上传的核心逻辑
-    // type: 'department' | 'intent' | 'faq'
-    // onSuccess: 上传成功后的回调函数 (通常用于刷新列表)
-    const handleFileUpload = async (event, type, onSuccess) => {
-        const file = event.target.files[0];
-        if (!file) return;
-
-        // 验证文件类型 (简单前端验证)
-        const validTypes = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel', 'text/csv'];
-        if (!validTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls|csv)$/)) {
-             Swal.fire('Error', 'Please upload an Excel or CSV file.', 'error');
-             return;
-        }
-
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('type', type); // 🔥 关键：传入后端需要的 type
-
-        isLoading.value = true;
-
-        try {
-            await axios.post('/api/importExcel', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                    'Authorization': `Bearer ${token}`,
-                },
-            });
-
-            // 成功提示
-            Swal.fire('Success', `${type}s imported successfully!`, 'success');
-
-            // 执行成功回调 (例如刷新列表)
-            if (onSuccess && typeof onSuccess === 'function') {
-                await onSuccess();
-            }
-
-        } catch (error) {
-            console.error(error);
-            const msg = error.response?.data?.message || 'Import failed';
-            Swal.fire('Error', msg, 'error');
-        } finally {
-            isLoading.value = false;
-            // 清空 input，防止无法连续上传同一个文件
-            event.target.value = '';
-        }
-    };
-
-    return {
-        isLoading,
-        importFileRef,
-        triggerImport,
-        handleFileUpload
-    };
-}
-</file>
-
-<file path="resources/js/composables/useExport.js">
-import { ref } from 'vue';
-import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
-
-export function useExport(dataA, dataB, isCompareMode, period1Label, period2Label) {
-    const exporting = ref(false);
-
-    // Excel 导出逻辑
-        const exportToExcel = () => {
-            const wb = XLSX.utils.book_new();
-
-            // 1. Summary
-            const summaryRows = [
-                ["Report Generated", new Date().toLocaleString() ? "Formular = Current - Comparison = Change": ""],
-                ["Mode", isCompareMode.value ? "Comparison" : "Single Period"],
-                // 🔥 修改：使用 period1Label.value
-                ["Current Period", period1Label.value],
-                // 🔥 修改：使用 period2Label.value
-                isCompareMode.value ? ["Comparison Period", period2Label.value] : [],
-                [],
-                ["Metric", "Current Period", isCompareMode.value ? "Comparison Period" : "", isCompareMode.value ? "Change" : ""],
-                ["Total Queries", dataA.stats.totalQuestions, isCompareMode.value ? dataB.stats.totalQuestions : "", isCompareMode.value ? dataA.stats.totalQuestions - dataB.stats.totalQuestions : ""],
-                ["Success", dataA.stats.totalSuccess, isCompareMode.value ? dataB.stats.totalSuccess : "", isCompareMode.value ? dataA.stats.totalSuccess - dataB.stats.totalSuccess : ""],
-                ["Failed", dataA.stats.totalFail, isCompareMode.value ? dataB.stats.totalFail : "", isCompareMode.value ? dataA.stats.totalFail - dataB.stats.totalFail : ""]
-            ];
-            const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
-            wsSummary['!cols'] = [{ wch: 20 }, { wch: 15 }, { wch: 15 }];
-            XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
-
-            // 2. Intents (Merged Side-by-Side)
-            const allIntents = new Set([
-                ...(dataA.faqs.Intent || []).map(i => i.intent_name),
-                ...(isCompareMode.value ? (dataB.faqs.Intent || []).map(i => i.intent_name) : [])
-            ]);
-
-            const intentRows = Array.from(allIntents).map(name => {
-                const valA = (dataA.faqs.Intent || []).find(i => i.intent_name === name)?.total || 0;
-                const valB = (dataB.faqs.Intent || []).find(i => i.intent_name === name)?.total || 0;
-                return {
-                    "Intent": name,
-                    "Current Period": valA,
-                    ...(isCompareMode.value && { "Comparison Period": valB, "Change": valA - valB })
-                };
-            });
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(intentRows), "Intents");
-
-            const allDepts = new Set([
-                ...(dataA.faqs.Department || []).map(d => d.name),
-                ...(isCompareMode.value ? (dataB.faqs.Department || []).map(d => d.name) : [])
-            ]);
-
-            const deptRows = Array.from(allDepts).map(name => {
-                const valA = (dataA.faqs.Department || []).find(d => d.name === name)?.total || 0;
-                const valB = (dataB.faqs.Department || []).find(d => d.name === name)?.total || 0;
-                return {
-                    "Department": name,
-                    "Current Period": valA,
-                    ...(isCompareMode.value && { "Comparison Period": valB, "Change": valA - valB })
-                };
-            });
-
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(deptRows), "Departments");
-            // 3. FAQs (Side by Side)
-            const faqRows = [];
-            const maxLen = Math.max(dataA.faqs.Faq?.length || 0, dataB.faqs.Faq?.length || 0);
-            for(let i=0; i<maxLen; i++) {
-                const row = {};
-                if(dataA.faqs.Faq?.[i]) {
-                    row["Current Period Rank"] = i+1;
-                    row["Current Period Question"] = dataA.faqs.Faq[i].question;
-                    row["Current Period Count"] = dataA.faqs.Faq[i].total;
-                }
-                if(isCompareMode.value && dataB.faqs.Faq?.[i]) {
-                    row["|"] = "|"; // Separator
-                    row["Comparison Period Rank"] = i+1;
-                    row["Comparison Period Question"] = dataB.faqs.Faq[i].question;
-                    row["Comparison Period Count"] = dataB.faqs.Faq[i].total;
-                    row["Change"] = dataA.faqs.Faq[i].total - dataB.faqs.Faq[i].total;
-                }
-                faqRows.push(row);
-            }
-            const wsFaq = XLSX.utils.json_to_sheet(faqRows);
-            wsFaq['!cols'] = [{ wch: 5 }, { wch: 40 }, { wch: 10 }, { wch: 2 }, { wch: 5 }, { wch: 40 }, { wch: 10 }];
-            XLSX.utils.book_append_sheet(wb, wsFaq, "FAQs");
-
-            XLSX.writeFile(wb, `Report_${new Date().toISOString().slice(0,10)}.xlsx`);
-        };
-
-    // PDF 导出逻辑
-    const exportToPDF = async (elementId) => {
-        exporting.value = true;
-        // 等待 DOM 更新 (比如隐藏掉不需要的按钮)
-        await new Promise(r => setTimeout(r, 500));
-
-        const element = document.getElementById(elementId);
-        if (!element) return;
-
-        try {
-            const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-            const imgData = canvas.toDataURL('image/png');
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const pdfW = pdf.internal.pageSize.getWidth();
-            const pdfH = pdf.internal.pageSize.getHeight();
-            const imgH = (canvas.height * pdfW) / canvas.width;
-
-            let heightLeft = imgH;
-            let position = 0;
-            pdf.addImage(imgData, 'PNG', 0, position, pdfW, imgH);
-            heightLeft -= pdfH;
-            while (heightLeft >= 0) {
-                position = heightLeft - imgH;
-                pdf.addPage();
-                pdf.addImage(imgData, 'PNG', 0, position, pdfW, imgH);
-                heightLeft -= pdfH;
-            }
-            pdf.save(`Report_${new Date().toISOString().slice(0,10)}.pdf`);
-        } catch(e) {
-            console.error(e);
-        } finally {
-            exporting.value = false;
-        }
-    };
-
-    return {
-        exporting,
-        exportToExcel,
-        exportToPDF
-    };
-}
-</file>
-
-<file path="resources/js/composables/usefilter.js">
-import { ref, computed } from 'vue';
-
-/**
- * A composable function to add client-side search and filtering logic.
- *
- * @param {Array<Object>} dataArrayRef - The reactive array of all data (e.g., FAQs.value).
- * @param {Array<Object>} filterOptions - An array of filter options (e.g., intents, departments).
- * @param {string} filterKey - The key in the main data array to match the filter option ID (e.g., 'intent_id').
- * @param {Array<string>} searchKeys - An array of keys in the data objects to search against (e.g., ['question', 'answer']).
- * @returns {{
- * searchTerm: Ref<string>,
- * selectedFilterId: Ref<string|number>,
- * filteredData: ComputedRef<Array<Object>>
- * }}
- */
-export function useFilterableData(dataArrayRef, filterOptions, filterKey, searchKeys) {
-
-    // 1. State for Search and Filter Input
-    const searchTerm = ref('');
-    const selectedFilterId = ref(''); // Can hold the ID of the selected intent or department
-
-    // 2. Computed Property for Filtering
-    const filteredData = computed(() => {
-        let data = dataArrayRef.value;
-
-        // --- Step A: Apply Text Search ---
-        if (searchTerm.value) {
-            const searchLower = searchTerm.value.toLowerCase();
-
-            data = data.filter(item => {
-                // Check if any defined search key matches the term
-                return searchKeys.some(key => {
-                    const value = item[key];
-                    return value && value.toString().toLowerCase().includes(searchLower);
-                });
-            });
-        }
-
-        // --- Step B: Apply Filter Selection ---
-        if (selectedFilterId.value) {
-            // Treat the selected ID as a string or number for comparison
-            const filterId = selectedFilterId.value;
-
-            data = data.filter(item => {
-                // We check if the item's foreign key (e.g., item.intent_id) matches the selected filter ID
-                return item[filterKey] === filterId;
-            });
-        }
-
-        return data;
-    });
-
-    return {
-        searchTerm,
-        selectedFilterId,
-        filteredData
-    };
-}
-</file>
-
-<file path="resources/js/composables/useIdleTimer.js">
-import { ref, onMounted, onUnmounted } from 'vue';
-import { useRouter } from 'vue-router';
-
-/**
- * @param {number} timeoutSeconds 无操作多久后弹出提示 (秒)
- * @param {number} countdownSeconds 倒计时多久后跳转 (秒)
- */
-export function useIdleTimer(timeoutSeconds = 90, countdownSeconds = 10) {
-    const router = useRouter();
-
-    const showTimeoutModal = ref(false);
-    const countdown = ref(countdownSeconds);
-    const isEndChatConfirmation = ref(false); // 是否是用户主动点击 End Chat
-
-    let idleTimer = null;
-    let countdownInterval = null;
-
-    // 开始倒计时 (10s)
-    const startCountdown = () => {
-        showTimeoutModal.value = true;
-        countdown.value = countdownSeconds;
-
-        countdownInterval = setInterval(() => {
-            countdown.value--;
-            if (countdown.value <= 0) {
-                endSession();
-            }
-        }, 1000);
-    };
-
-    // 重置计时器 (用户有操作时调用)
-    const resetTimer = () => {
-        // 如果是用户主动点击结束，或者正在倒计时，不重置（除非显式取消）
-        if (isEndChatConfirmation.value) return;
-
-        clearTimers();
-        showTimeoutModal.value = false;
-
-        // 重新开始 90s 计时
-        idleTimer = setTimeout(startCountdown, timeoutSeconds * 1000);
-    };
-
-    // 彻底结束
-    const endSession = () => {
-        clearTimers();
-        router.push('/');
-    };
-
-    // 用户主动点击 "End Chat"
-    const confirmEndChat = () => {
-        isEndChatConfirmation.value = true;
-        showTimeoutModal.value = true;
-        clearTimeout(idleTimer); // 暂停空闲检测
-    };
-
-    // 用户点击 "Cancel" (继续聊天)
-    const continueSession = () => {
-        showTimeoutModal.value = false;
-        isEndChatConfirmation.value = false;
-        resetTimer();
-    };
-
-    const clearTimers = () => {
-        clearTimeout(idleTimer);
-        clearInterval(countdownInterval);
-    };
-
-    onMounted(() => resetTimer());
-    onUnmounted(() => clearTimers());
-
-    return {
-        showTimeoutModal,
-        countdown,
-        isEndChatConfirmation,
-        resetTimer,
-        endSession,
-        confirmEndChat,
-        continueSession
-    };
-}
-</file>
-
-<file path="resources/js/composables/useNotificationStore.js">
-import { ref } from 'vue';
-import axios from 'axios';
-
-// 全局状态 (Singleton Pattern)
-const failsCount = ref(0);
-const liveRequests = ref([]);
-let pollingTimer = null;
-
-export function useNotificationStore() {
-    const token = localStorage.getItem('sanctum_token');
-
-    // 核心：拉取所有通知数据
-    const fetchAllNotifications = async () => {
-        if (!token) return;
-        try {
-            // 并行请求：获取失败日志数 + 实时请求
-            const [failsRes, liveRes] = await Promise.all([
-                axios.get('/api/selectFailedLogs', { headers: { Authorization: `Bearer ${token}` } }),
-                axios.get('/api/admin/support-requests', { headers: { Authorization: `Bearer ${token}` } })
-            ]);
-
-            // 更新失败数
-            failsCount.value = failsRes.data.length;
-
-            // 更新实时请求 (保留正在输入的回复草稿)
-            // 逻辑：新数据来了，如果旧数据里有用户正在打字的 replyDraft，把它复制过来
-            const newData = liveRes.data;
-            liveRequests.value = newData.map(newItem => {
-                const oldItem = liveRequests.value.find(o => o.id === newItem.id);
-                return {
-                    ...newItem,
-                    replyDraft: oldItem?.replyDraft || '' // 保留草稿
-                };
-            });
-
-        } catch (e) {
-            // 静默失败，不打扰 UI
-            console.error("Notification Poll Error", e);
-        }
-    };
-
-    // 发送回复
-    const sendReplyToUser = async (req) => {
-        if (!req.replyDraft) return;
-        try {
-            await axios.post('/api/admin/reply-support', {
-                log_id: req.id,
-                reply: req.replyDraft
-            }, { headers: { Authorization: `Bearer ${token}` } });
-
-            // 成功的乐观更新：直接从列表中移除该请求，不用等下一次轮询
-            liveRequests.value = liveRequests.value.filter(r => r.id !== req.id);
-            return true;
-        } catch (e) {
-            alert("Failed to send reply");
-            return false;
-        }
-    };
-
-    // 启动轮询
-    const startPolling = () => {
-        if (pollingTimer) return; // 防止重复启动
-        fetchAllNotifications(); // 立即执行一次
-        pollingTimer = setInterval(fetchAllNotifications, 5000); // 每5秒一次
-    };
-
-    // 停止轮询
-    const stopPolling = () => {
-        if (pollingTimer) clearInterval(pollingTimer);
-        pollingTimer = null;
-    };
-
-    return {
-        failsCount,
-        liveRequests,
-        startPolling,
-        stopPolling,
-        refresh: fetchAllNotifications,
-        sendReplyToUser
-    };
-}
-</file>
-
-<file path="resources/js/composables/useSpeech.js">
-import { ref, onUnmounted } from 'vue';
-
-export function useSpeech() {
-    const isListening = ref(false);
-    const transcript = ref('');
-    let recognition = null;
-
-    const setupSpeech = () => {
-        // 兼容性处理
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-            alert("Your browser does not support voice input.");
-            return false;
-        }
-
-        recognition = new SpeechRecognition();
-        recognition.lang = 'en-US';
-        recognition.continuous = false; // 说完一句自动停
-        recognition.interimResults = false;
-
-        recognition.onstart = () => { isListening.value = true; };
-
-        recognition.onend = () => { isListening.value = false; };
-
-        recognition.onresult = (event) => {
-            const text = event.results[0][0].transcript;
-            transcript.value = text; // 更新响应式变量
-        };
-
-        recognition.onerror = (event) => {
-            isListening.value = false;
-            console.error("Speech Error:", event.error);
-            if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-                alert("Microphone blocked. Please check your browser permission or use HTTPS.");
-            }
-        };
-
-        return true;
-    };
-
-    const toggleSpeech = () => {
-        if (!recognition) {
-            if (!setupSpeech()) return;
-        }
-
-        if (isListening.value) {
-            recognition.stop();
-        } else {
-            transcript.value = ''; // 清空上一句
-            recognition.start();
-        }
-    };
-
-    onUnmounted(() => {
-        if (recognition) recognition.abort();
-    });
-
-    return {
-        isListening,
-        transcript,
-        toggleSpeech
-    };
-}
-</file>
-
 <file path="resources/js/views/private/Dashboard.vue">
 <template>
 <div class="container-fluid py-4" id="dashboard-content">
@@ -2144,7 +817,7 @@ export function useSpeech() {
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end shadow">
                                 <li><a class="dropdown-item" href="#" @click.prevent="exportToExcel"><i class="bi bi-file-excel text-success me-2"></i>Excel Data</a></li>
-                                <li><a class="dropdown-item" href="#" @click.prevent="exportToPDF('dashboard-content')"><i class="bi bi-file-pdf text-danger me-2"></i>PDF Report</a></li>
+                                <li><a class="dropdown-item" href="#" @click.prevent="handleSmartExportPDF"><i class="bi bi-file-pdf text-danger me-2"></i>PDF Report</a></li>
                             </ul>
                         </div>
                     </div>
@@ -2206,7 +879,7 @@ export function useSpeech() {
         <div :class="isCompareMode ? 'col-12 col-xl-6' : 'col-12'">
             <div class="card h-100 shadow-sm border-0">
                 <div class="card-header bg-white py-3">
-                    <h6 class="mb-0 fw-bold">Top 10 FAQs <span v-if="isCompareMode" class="text-muted fw-normal small ms-1">(Current Period)</span></h6>
+                    <h6 class="text-center mb-0 fw-bold">Top 10 FAQs <span v-if="isCompareMode" class="text-muted fw-bold small ms-1">(Current Period: {{ period1Label }})</span></h6>
                 </div>
                 <div class="card-body p-0">
                     <!-- Desktop Table -->
@@ -2244,7 +917,7 @@ export function useSpeech() {
         <div class="col-12 col-xl-6" v-if="isCompareMode">
             <div class="card h-100 shadow-sm border-start border-primary border-4">
                 <div class="card-header bg-white py-3">
-                    <h6 class="mb-0 fw-bold text-primary">Top 10 FAQs <span class="text-muted fw-normal small ms-1">(Comparison Period)</span></h6>
+                    <h6 class="text-center mb-0 fw-bold text-primary">Top 10 FAQs <span class="text-muted fw-bold small ms-1">(Comparison Period: {{ period2Label }})</span></h6>
                 </div>
                 <div class="card-body p-0">
                     <div class="d-none d-md-block table-responsive">
@@ -2323,7 +996,7 @@ export function useSpeech() {
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, computed, ref } from 'vue';
+import { onMounted, onUnmounted, computed, ref, watch, nextTick } from 'vue';
 import { BarChart, LineChart } from 'vue-chart-3'; // 导入 LineChart
 import { Chart, registerables } from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
@@ -2384,6 +1057,40 @@ const setupObserver = () => {
     }, { threshold: 0.1 });
 
     if (aiSectionRef.value) observer.observe(aiSectionRef.value);
+};
+
+watch(
+    [
+        () => filterA.type, () => filterA.start, () => filterA.end,
+        () => filterB.type, () => filterB.start, () => filterB.end,
+        isCompareMode
+    ],
+    () => {
+        if (aiSummary.value) {
+            aiSummary.value = ""; // 清空旧数据
+        }
+    }
+);
+
+// 🔥🔥🔥 核心修复 2: 智能导出逻辑 (Smart Export) 🔥🔥🔥
+const handleSmartExportPDF = async () => {
+    // 如果没有 AI 总结，询问用户
+    if (!aiSummary.value) {
+        const confirmGen = confirm("AI Analysis is missing. Do you want to generate it before exporting?");
+
+        if (confirmGen) {
+            // 用户选择生成：先生成
+            await triggerAnalysis();
+
+            // 等待 DOM 更新 (因为 AI 文本生成后，页面高度会变，需要等 Vue 渲染完)
+            await nextTick();
+            // 额外给一点时间让展开动画完成 (可选)
+            await new Promise(r => setTimeout(r, 500));
+        }
+    }
+
+    // 执行真正的导出 (无论是否生成了 AI，或者用户选了 No，都继续导出)
+    exportToPDF('dashboard-content');
 };
 
 onMounted(() => {
@@ -4692,6 +3399,103 @@ abstract class Controller
 }
 </file>
 
+<file path="app/Http/Requests/StoreDepartmentRequest.php">
+<?php
+
+namespace App\Http\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class StoreDepartmentRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true; // 允许所有登录用户操作
+    }
+
+    public function rules(): array
+    {
+        return [
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'location' => 'nullable|string',
+            'contact_info' => 'nullable|string',
+        ];
+    }
+}
+</file>
+
+<file path="app/Http/Requests/StoreFaqRequest.php">
+<?php
+
+namespace App\Http\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class StoreFaqRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true; // 允许所有登录用户
+    }
+
+    public function rules(): array
+    {
+        return [
+            'question' => 'required|string|max:255',
+            'answer' => 'required|string',
+            'intent_id' => 'nullable', // 允许空
+            'department_id' => 'nullable',
+        ];
+    }
+
+    // 数据预处理：处理前端传来的 "null" 字符串问题
+    protected function prepareForValidation()
+    {
+        $this->merge([
+            'intent_id' => ($this->intent_id === 'null' || $this->intent_id === '') ? null : $this->intent_id,
+            'department_id' => ($this->department_id === 'null' || $this->department_id === '') ? null : $this->department_id,
+        ]);
+    }
+}
+</file>
+
+<file path="app/Http/Requests/StoreIntentRequest.php">
+<?php
+
+namespace App\Http\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class StoreIntentRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true; // 允许所有登录用户操作
+    }
+
+    public function rules(): array
+    {
+        return [
+            'intent_name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'department_id' => 'nullable|exists:departments,id',
+        ];
+    }
+
+    /**
+     * 在验证之前清理数据
+     * 解决前端传 "null" 字符串的问题
+     */
+    protected function prepareForValidation()
+    {
+        $this->merge([
+            'department_id' => ($this->department_id === 'null' || $this->department_id === '') ? null : $this->department_id,
+        ]);
+    }
+}
+</file>
+
 <file path="app/Models/Admin.php">
 <?php
 
@@ -4781,348 +3585,214 @@ class AppServiceProvider extends ServiceProvider
 }
 </file>
 
-<file path="app/Services/ChatBotService.php">
+<file path="app/Services/DashboardService.php">
 <?php
 
 namespace App\Services;
 
 use App\Models\QuestionLog;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
-class ChatBotService
+class DashboardService
 {
-    protected $gemini;
-    protected $searcher;
-
-    public function __construct(GeminiService $gemini, VectorSearchService $searcher)
-    {
-        $this->gemini = $gemini;
-        $this->searcher = $searcher;
-    }
-
     /**
-     * 处理用户聊天的核心逻辑
+     * 获取 Top 10 FAQ, Intent, Department
      */
-    public function processUserMessage(string $userMessage): array
+    public function getTopStats($filter, $startDate, $endDate)
     {
-        // 定义 Tools (Function Definitions)
-        $functions = [
-            [
-                "name" => "getFaqAnswer",
-                "description" => "Search for the most relevant FAQ from the database.",
-                "parameters" => [
-                    "type" => "object",
-                    "properties" => [
-                        "question" => ["type" => "string", "description" => "User's question."]
-                    ],
-                    "required" => ["question"]
-                ]
-            ],
-            [
-                "name" => "getDepartmentInfo",
-                "description" => "Get information about a department by name.",
-                "parameters" => [
-                    "type" => "object",
-                    "properties" => [
-                        "name" => ["type" => "string", "description" => "Department name."]
-                    ],
-                    "required" => ["name"]
-                ]
-            ],
+        // 1. 基础 Query
+        $baseQuery = QuestionLog::where('status', true);
+        $this->applyDateFilter($baseQuery, $filter, $startDate, $endDate);
+
+        // 2. Clone query to avoid mutation issues
+        $queryFaq = clone $baseQuery;
+        $queryIntent = clone $baseQuery;
+        $queryDepartment = clone $baseQuery;
+
+        return [
+            'Faq' => $queryFaq
+                ->select('faqs.question', DB::raw('COUNT(question_logs.faq_id) as total'))
+                ->join('faqs', 'question_logs.faq_id', '=', 'faqs.id')
+                ->groupBy('faqs.question', 'faqs.id')
+                ->orderByDesc('total')
+                ->limit(10)
+                ->get(),
+            'Intent' => $queryIntent
+                ->select('intents.intent_name', DB::raw('COUNT(question_logs.intent_id) as total'))
+                ->join('intents', 'question_logs.intent_id', '=', 'intents.id')
+                ->groupBy('intents.intent_name', 'intents.id')
+                ->orderByDesc('total')
+                ->get(),
+            'Department' => $queryDepartment
+                ->select('departments.name', DB::raw('COUNT(question_logs.department_id) as total'))
+                ->join('departments', 'question_logs.department_id', '=', 'departments.id')
+                ->groupBy('departments.name', 'departments.id')
+                ->orderByDesc('total')
+                ->get()
         ];
-
-        $prompt = "
-        You are a chatbot for Southern University College.
-        Please reply in natural language using the knowledge base.
-        If unsure, call getFaqAnswer.
-        User said: '$userMessage'
-        ";
-
-        try {
-            // 1. 第一次调用 Gemini
-            $response = $this->gemini->askGemini($prompt, $functions);
-
-            // 2. 检查是否触发了 Function Call
-            if (is_array($response) && isset($response['function_call'])) {
-                return $this->handleFunctionCall($response['function_call'], $userMessage);
-            }
-
-            // 3. 如果 Gemini 没有调用函数，直接Fallback到强制搜索 (或者直接回复)
-            Log::info("Gemini didn't call function, forcing fallback search for: " . $userMessage);
-            return $this->handleFallbackSearch($userMessage);
-
-        } catch (\Exception $e) {
-            Log::error("ChatBotService Error: " . $e->getMessage());
-
-            $errorReply = "Sorry, I am currently experiencing technical difficulties.";
-            $log = $this->logToDb($userMessage, $errorReply, false, "System Error: " . substr($e->getMessage(), 0, 200));
-
-            return ['reply' => $errorReply, 'log_id' => $log->id, 'status' => false];
-        }
     }
 
     /**
-     * 处理 Function Call 逻辑
+     * 获取部门趋势 (Chart Data)
      */
-    private function handleFunctionCall(array $functionCall, string $originalQuestion): array
+
+    public function getDepartmentTrend($filter, $startDate, $endDate)
     {
-        $functionName = $functionCall['name'] ?? null;
-        $args = $functionCall['args'] ?? $functionCall['arguments'] ?? [];
+        $query = QuestionLog::query()
+            ->join('departments', 'question_logs.department_id', '=', 'departments.id')
+            ->where('question_logs.status', true);
 
-        $knowledgeText = null;
-        $logPayload = [];
-        $remark = "Vector Search Success";
+        $this->applyDateFilter($query, $filter, $startDate, $endDate);
 
-        // 分发逻辑
-        switch ($functionName) {
-            case 'getFaqAnswer':
-                $q = $args['question'] ?? $originalQuestion;
-                // 调用 VectorSearchService
-                $results = $this->searcher->findRelevantFaqs($q);
+        $selectFormat = "DATE_FORMAT(question_logs.created_at, '%Y-%m-%d') as time_unit";
+        if ($filter === 'daily') {
+            $selectFormat = "DATE_FORMAT(question_logs.created_at, '%H:00') as time_unit";
+        } elseif ($filter === 'yearly') {
+            $selectFormat = "DATE_FORMAT(question_logs.created_at, '%Y-%m') as time_unit";
+        }
 
-                if (!empty($results)) {
-                    $formatted = $this->formatFaqsForPrompt($results);
-                    $knowledgeText = $formatted['context'];
-                    $logPayload = $formatted['log_data'];
+        $trends = $query->select(
+                'departments.name as dept_name',
+                DB::raw($selectFormat),
+                DB::raw('COUNT(question_logs.id) as total')
+            )
+            ->groupBy('departments.name', 'time_unit')
+            ->orderBy('time_unit', 'asc')
+            ->get();
+
+        $labels = $trends->pluck('time_unit')->unique()->values()->all();
+        $datasets = [];
+        $grouped = $trends->groupBy('dept_name');
+
+        foreach ($grouped as $deptName => $records) {
+            $dataPoints = [];
+            foreach ($labels as $label) {
+                $record = $records->firstWhere('time_unit', $label);
+                $dataPoints[] = $record ? $record->total : 0;
+            }
+            $datasets[] = ['label' => $deptName, 'data' => $dataPoints];
+        }
+
+        return ['labels' => $labels, 'datasets' => $datasets];
+    }
+
+    /**
+     * 获取核心指标 (Total, Success, Fail)
+     */
+    public function getMetrics($filter, $startDate, $endDate)
+    {
+        $query = QuestionLog::query();
+        $this->applyDateFilter($query, $filter, $startDate, $endDate);
+
+        // 使用 Clone 分别计算
+        $totalFails = (clone $query)
+            ->where('status', false)
+            ->where('remark', 'No matching knowledge found') // 仅计算知识库缺失的
+            ->count();
+
+        $totalSuccess = (clone $query)->where('status', true)->count();
+
+        return [
+            'totalFail' => $totalFails,
+            'totalSuccess' => $totalSuccess,
+            'totalQuestions' => $totalFails + $totalSuccess,
+        ];
+    }
+
+    /**
+     * 私有辅助方法：应用日期过滤
+     */
+    private function applyDateFilter($query, $filter, $startDate, $endDate)
+    {
+        switch ($filter) {
+            case 'daily':
+                $query->whereDate('question_logs.created_at', Carbon::today());
+                break;
+            case 'weekly':
+                $query->whereBetween('question_logs.created_at', [Carbon::now()->startOfWeek(), Carbon::now()->endOfWeek()]);
+                break;
+            case 'monthly':
+                $query->whereMonth('question_logs.created_at', Carbon::now()->month)
+                    ->whereYear('question_logs.created_at', Carbon::now()->year);
+                break;
+            case 'yearly':
+                $query->whereYear('question_logs.created_at', Carbon::now()->year);
+                break;
+            case 'custom-range':
+                if ($startDate && $endDate) {
+                    $query->whereBetween('question_logs.created_at', [
+                        Carbon::parse($startDate)->startOfDay(),
+                        Carbon::parse($endDate)->endOfDay()
+                    ]);
                 }
                 break;
-
-            case 'getDepartmentInfo':
-                $name = $args['name'] ?? $originalQuestion;
-                $info = $this->searcher->findDepartmentInfo($name);
-                if ($info) {
-                    $knowledgeText = $info;
-                    $remark = "Department Info Found";
-                }
-                break;
         }
-
-        // 如果找到了知识
-        if ($knowledgeText) {
-            $integrationPrompt = "The user asked: '{$originalQuestion}'. Info found: {$knowledgeText}. Please synthesize a natural response.";
-            $naturalReply = $this->gemini->generateText($integrationPrompt);
-
-            $log = $this->logToDb($originalQuestion, $naturalReply, true, $remark, $logPayload);
-            return ['reply' => $naturalReply, 'log_id' => $log->id, 'status' => true];
-        }
-
-        // 如果 Function 没找到结果，走 Fallback
-        return $this->handleFallbackSearch($originalQuestion);
-    }
-
-    /**
-     * Fallback: 强制搜索
-     */
-    private function handleFallbackSearch(string $question): array
-    {
-        // 强制调用 VectorService (它内部包含了 Vector -> Fuzzy 的降级逻辑)
-        $results = $this->searcher->findRelevantFaqs($question);
-
-        if (!empty($results)) {
-            $formatted = $this->formatFaqsForPrompt($results);
-
-            $integrationPrompt = "The user asked: '{$question}'. Knowledge base found: '{$formatted['context']}'. Please rephrase naturally.";
-            $naturalReply = $this->gemini->generateText($integrationPrompt);
-
-            $log = $this->logToDb($question, $naturalReply, true, "Success (Fallback)", $formatted['log_data']);
-            return ['reply' => $naturalReply, 'log_id' => $log->id, 'status' => true];
-        }
-
-        // 彻底失败
-        $finalFailMsg = "Sorry, I don't have information about that yet. Please ask the counter staff.";
-        $log = $this->logToDb($question, $finalFailMsg, false, "No matching knowledge found");
-
-        return ['reply' => $finalFailMsg, 'log_id' => $log->id, 'status' => false];
-    }
-
-    /**
-     * 将搜索结果格式化为字符串给 LLM，并提取日志数据
-     */
-    private function formatFaqsForPrompt(array $results): array
-    {
-        $context = "";
-        $logData = [];
-
-        foreach ($results as $match) {
-            $f = $match['faq'];
-            $score = number_format($match['score'] * 100, 1) . "%";
-
-            $context .= "--- FAQ (Match: {$score}) ---\n";
-            $context .= "Q: {$f->question}\n A: {$f->answer}\n";
-            if ($f->department) {
-                $context .= "Dept: {$f->department->name} at {$f->department->location}.\n";
-            }
-
-            $logData[] = [
-                'faq_id' => $f->id,
-                'intent_id' => $f->intent_id,
-                'department_id' => $f->department_id,
-            ];
-        }
-
-        return ['context' => $context, 'log_data' => $logData];
-    }
-
-    /**
-     * 日志记录
-     */
-    private function logToDb($question, $answer, $status, $remark = null, $metaData = [])
-    {
-        // 提取第一条匹配的元数据
-        $faqId = $metaData[0]['faq_id'] ?? null;
-        $intentId = $metaData[0]['intent_id'] ?? null;
-        $deptId = $metaData[0]['department_id'] ?? null;
-
-        return QuestionLog::create([
-            'question_text' => $question,
-            'answer_text' => $answer,
-            'status' => $status,
-            'checked' => $status ? true : false,
-            'remark' => $remark,
-            'faq_id' => $faqId,
-            'intent_id' => $intentId,
-            'department_id' => $deptId,
-        ]);
-    }
-
-    /**
-     * 生成 Dashboard 摘要 (原 Controller 里的逻辑)
-     */
-    public function generateSummary(array $stats): string
-    {
-        $dataString = json_encode($stats);
-        $prompt = "
-        You are a data analyst for a university helpdesk.
-        Here is the dashboard data: {$dataString}
-        Please write a professional, concise summary (max 100 words).
-        Output pure text.
-        ";
-        return $this->gemini->generateText($prompt);
     }
 }
 </file>
 
-<file path="app/Services/VectorSearchService.php">
+<file path="app/Services/QuestionLogService.php">
 <?php
 
 namespace App\Services;
 
+use App\Models\QuestionLog;
 use App\Models\Faq;
-use App\Models\Department;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-class VectorSearchService
+class QuestionLogService
 {
-    protected $gemini;
+    /**
+     * 核心业务：将一条日志转化为 FAQ，并标记该日志为已处理
+     * 使用事务确保原子性
+     */
 
-    public function __construct(GeminiService $gemini)
+    public function convertLogToFaq(int $logId, array $faqData)
     {
-        $this->gemini = $gemini;
+        return DB::transaction(function () use ($logId, $faqData) {
+
+            $log = QuestionLog::findOrFail($logId);
+
+            $faq = Faq::create($faqData);
+
+            $log->update([
+                'checked' => true,
+                'faq_id' => $faq->id,
+            ]);
+
+            return [
+                'faq' => $faq,
+                'log' => $log
+            ];
+        });
     }
 
     /**
-     * 核心搜索入口：尝试向量搜索，失败则降级为模糊搜索
+     * 批量标记为已读
      */
-    public function findRelevantFaqs(string $question): array
+    public function markLogsAsChecked(array $ids)
     {
-        // 1. 尝试生成向量
-        $questionEmbedding = $this->gemini->generateEmbedding($question);
-
-        // 2. 如果向量生成失败，或者数据库里还没有向量数据，直接用模糊匹配
-        if (!$questionEmbedding) {
-            Log::warning("Vector generation failed for: '{$question}', falling back to fuzzy search.");
-            return $this->fuzzySearch($question);
-        }
-
-        // 3. 向量搜索逻辑
-        $faqs = Faq::whereNotNull('embedding')->with(['department'])->get();
-        $matches = [];
-
-        foreach ($faqs as $f) {
-            $dbEmbedding = json_decode($f->embedding, true);
-            if (!is_array($dbEmbedding)) continue;
-
-            $score = $this->cosineSimilarity($questionEmbedding, $dbEmbedding);
-
-            // 阈值设为 0.65
-            if ($score > 0.65) {
-                $matches[] = ['faq' => $f, 'score' => $score];
-            }
-        }
-
-        // 4. 如果向量没找到结果，尝试模糊匹配作为最后防线
-        if (empty($matches)) {
-            Log::info("Vector search found no results for: '{$question}', trying fuzzy search.");
-            return $this->fuzzySearch($question);
-        }
-
-        return $this->sortAndLimit($matches);
+        return QuestionLog::whereIn('id', $ids)->update(['checked' => true]);
     }
 
     /**
-     * 模糊搜索 (Fallback Logic)
+     * 管理员回复人工协助请求
      */
-    public function fuzzySearch(string $question): array
+    public function replyToRequest(int $logId, string $replyText)
     {
-        $faqs = Faq::with(['department'])->get();
-        $matches = [];
+        $log = QuestionLog::find($logId);
 
-        foreach ($faqs as $f) {
-            similar_text(strtolower($question), strtolower($f->question), $percent);
-            // 这里 percent 是 0-100，转成 0-1 以便统一格式
-            $score = $percent / 100;
-
-            if ($percent > 60) {
-                $matches[] = ['faq' => $f, 'score' => $score];
-            }
+        if ($log) {
+            $log->update([
+                'admin_reply' => $replyText,
+                'replied_at' => now()
+            ]);
+            return true;
         }
 
-        return $this->sortAndLimit($matches);
-    }
-
-    /**
-     * 获取部门信息
-     */
-    public function findDepartmentInfo(string $name): ?string
-    {
-        $department = Department::where('name', 'like', "%$name%")->first();
-
-        if (!$department) {
-            return null;
-        }
-
-        return "{$department->name} is located at {$department->location}. Contact: {$department->contact_info}.";
-    }
-
-    /**
-     * 辅助：计算余弦相似度
-     */
-    private function cosineSimilarity(array $vecA, array $vecB)
-    {
-        $dotProduct = 0;
-        $magnitudeA = 0;
-        $magnitudeB = 0;
-
-        foreach ($vecA as $key => $value) {
-            if (!isset($vecB[$key])) continue;
-            $dotProduct += $value * $vecB[$key];
-            $magnitudeA += $value ** 2;
-            $magnitudeB += $vecB[$key] ** 2;
-        }
-
-        $magnitudeA = sqrt($magnitudeA);
-        $magnitudeB = sqrt($magnitudeB);
-
-        return ($magnitudeA * $magnitudeB) == 0 ? 0 : $dotProduct / ($magnitudeA * $magnitudeB);
-    }
-
-    /**
-     * 辅助：排序并取前3
-     */
-    private function sortAndLimit(array $matches, int $limit = 3): array
-    {
-        usort($matches, fn($a, $b) => $b['score'] <=> $a['score']);
-        return array_slice($matches, 0, $limit);
+        return false;
     }
 }
 </file>
@@ -7630,6 +6300,1108 @@ const sendMessage = async () => {
 </template>
 </file>
 
+<file path="resources/js/composables/useAIAnalysis.js">
+import { ref } from 'vue';
+import axios from 'axios';
+
+export function useAIAnalysis() {
+    const analyzing = ref(false);
+    const aiSummary = ref("");
+    const token = localStorage.getItem('sanctum_token');
+
+    const generateAnalysis = async (dataA, dataB, isCompareMode, p1Label, p2Label) => {
+        analyzing.value = true;
+        try {
+            const payload = {
+                mode: isCompareMode.value ? 'comparison' : 'single',
+                period1: {
+                    filter: p1Label.value,
+                    stats: dataA.stats,
+                    topIntent: dataA.faqs.Intent?.[0]?.intent_name
+                },
+                period2: isCompareMode.value ? {
+                    range: p2Label.value,
+                    stats: dataB.stats,
+                    topIntent: dataB.faqs.Intent?.[0]?.intent_name
+                } : null
+            };
+
+            const res = await axios.post('/api/generate-summary',
+                { stats: payload },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            aiSummary.value = res.data.summary;
+        } catch(e) {
+            console.error(e);
+            aiSummary.value = "Failed to generate AI analysis.";
+        } finally {
+            analyzing.value = false;
+        }
+    };
+
+    return {
+        analyzing,
+        aiSummary,
+        generateAnalysis
+    };
+}
+</file>
+
+<file path="resources/js/composables/useChatLogic.js">
+import { ref, computed } from 'vue';
+import axios from 'axios';
+
+export function useChatLogic() {
+    const messages = ref([]);
+    const FAQs = ref([]);
+    const isLoading = ref(false);
+    const token = localStorage.getItem('sanctum_token');
+    let pollingInterval = null;
+
+    // 获取 Top 10 FAQ
+    const fetchTopFAQs = async () => {
+        try {
+            const res = await axios.get('/api/top10ForChat', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            FAQs.value = res.data;
+        } catch (e) {
+            console.error("Failed to fetch FAQs", e);
+        }
+    };
+
+    // 发送消息
+    const sendMessageToApi = async (text) => {
+        if (!text.trim()) return;
+
+        // 1. UI 立即显示用户消息
+        messages.value.push({ from: "user", text });
+        isLoading.value = true;
+
+        try {
+            // 2. API 请求
+            const res = await axios.post('/api/chat',
+                { message: text },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            // 3. UI 显示 AI 回复
+            messages.value.push({
+                from: "ai",
+                text: res.data.reply,
+                isFailure: res.data.status === false,
+                logId: res.data.log_id,
+                waitingForHuman: false,
+                replied: false
+            });
+
+        } catch (error) {
+            messages.value.push({ from: "ai", text: "Sorry, network error occurred." });
+        } finally {
+            isLoading.value = false;
+        }
+    };
+
+    // 请求人工协助
+    const requestHumanHelp = async (index, logId) => {
+        try {
+            await axios.post('/api/request-help', { log_id: logId });
+
+            // 更新 UI 状态
+            if (messages.value[index]) {
+                messages.value[index].waitingForHuman = true;
+            }
+            messages.value.push({ from: 'ai', text: '<i>Request sent! Please wait for staff...</i>' });
+
+            // 开始轮询
+            startPolling(logId);
+        } catch (e) {
+            alert("Failed to request help.");
+        }
+    };
+
+    // 轮询管理员回复
+    const startPolling = (logId) => {
+        if (pollingInterval) clearInterval(pollingInterval);
+
+        pollingInterval = setInterval(async () => {
+            try {
+                const res = await axios.post('/api/check-reply', { log_id: logId });
+                if (res.data.replied) {
+                    clearInterval(pollingInterval);
+
+                    // 找到原始消息更新状态
+                    const originalMsg = messages.value.find(m => m.logId === logId);
+                    if (originalMsg) {
+                        originalMsg.waitingForHuman = false;
+                        originalMsg.replied = true;
+                    }
+
+                    // 添加回复消息
+                    messages.value.push({
+                        from: 'ai',
+                        text: `👨‍💼 <strong>Staff Reply:</strong> ${res.data.reply}`
+                    });
+                }
+            } catch (e) { console.error("Polling error"); }
+        }, 3000);
+    };
+
+    const stopPolling = () => {
+        if (pollingInterval) clearInterval(pollingInterval);
+    };
+
+    // 计算属性：只显示前 3 个 FAQ
+    const visibleFAQs = computed(() => FAQs.value.slice(0, 3));
+
+    return {
+        messages,
+        FAQs,
+        visibleFAQs,
+        isLoading,
+        fetchTopFAQs,
+        sendMessageToApi,
+        requestHumanHelp,
+        stopPolling
+    };
+}
+</file>
+
+<file path="resources/js/composables/useCrud.js">
+import { ref, reactive } from 'vue';
+import axios from 'axios';
+import Swal from 'sweetalert2';
+
+/**
+ * 通用 CRUD 逻辑封装
+ * @param {string} resourceName - 资源名称 (例如 "Department", "FAQ")
+ * @param {object} apiEndpoints - API 地址定义 { create, update(id), delete(id) }
+ * @param {object} defaultFormState - 表单的初始空状态
+ * @param {function} refreshListCallback - 操作成功后刷新列表的回调函数
+ */
+export function useCrud(resourceName, apiEndpoints, defaultFormState, refreshListCallback) {
+
+    // 1. 状态定义
+    const showModal = ref(false);
+    const isEditMode = ref(false);
+    const isSaving = ref(false);
+    const modalError = ref('');
+    const currentId = ref(null);
+    const token = localStorage.getItem('sanctum_token');
+
+    // 创建响应式表单，初始值为传入的默认值
+    // 使用 JSON 解析深拷贝，防止引用污染
+    const form = reactive(JSON.parse(JSON.stringify(defaultFormState)));
+
+    // 2. 打开新建弹窗
+    const openCreateModal = () => {
+        isEditMode.value = false;
+        currentId.value = null;
+        modalError.value = '';
+
+        // 重置表单
+        Object.keys(defaultFormState).forEach(key => {
+            form[key] = defaultFormState[key];
+        });
+
+        showModal.value = true;
+    };
+
+    // 3. 打开编辑弹窗
+    const openEditModal = (itemData) => {
+        isEditMode.value = true;
+        currentId.value = itemData.id;
+        modalError.value = '';
+
+        // 填充表单 (只填充 defaultFormState 中定义的字段)
+        Object.keys(defaultFormState).forEach(key => {
+            form[key] = itemData[key] ?? '';
+        });
+
+        showModal.value = true;
+    };
+
+    const closeModal = () => {
+        showModal.value = false;
+    };
+
+    // 4. 保存逻辑 (Create / Update)
+    const saveItem = async () => {
+        if (!token) return;
+        isSaving.value = true;
+        modalError.value = '';
+
+        try {
+            if (isEditMode.value) {
+                // Update
+                const url = apiEndpoints.update(currentId.value);
+                await axios.put(url, form, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                Swal.fire('Updated', `${resourceName} details updated.`, 'success');
+            } else {
+                // Create
+                const url = apiEndpoints.create;
+                await axios.post(url, form, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                Swal.fire('Created', `New ${resourceName} added.`, 'success');
+            }
+
+            closeModal();
+            if (refreshListCallback) await refreshListCallback();
+
+        } catch (err) {
+            console.error(err);
+            modalError.value = err.response?.data?.message || 'Operation failed.';
+        } finally {
+            isSaving.value = false;
+        }
+    };
+
+    // 5. 删除逻辑
+    const deleteItem = async (id) => {
+        const res = await Swal.fire({
+            title: 'Are you sure?',
+            text: `Deleting a ${resourceName} may affect associated data!`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            confirmButtonText: 'Yes, delete it!'
+        });
+
+        if (res.isConfirmed && token) {
+            try {
+                const url = apiEndpoints.delete(id);
+                await axios.delete(url, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                Swal.fire('Deleted!', `${resourceName} removed.`, 'success');
+                if (refreshListCallback) await refreshListCallback();
+            } catch (err) {
+                Swal.fire('Error', 'Delete failed.', 'error');
+            }
+        }
+    };
+
+    return {
+        form,
+        showModal,
+        isEditMode,
+        isSaving,
+        modalError,
+        openCreateModal,
+        openEditModal,
+        closeModal,
+        saveItem,
+        deleteItem
+    };
+}
+</file>
+
+<file path="resources/js/composables/useDashboardData.js">
+import { reactive, ref, computed, watch } from 'vue';
+import axios from 'axios';
+
+export function useDashboardData() {
+    const token = localStorage.getItem('sanctum_token');
+    const loading = ref(false);
+    const isCompareMode = ref(false);
+
+    // 筛选状态
+    const filterA = reactive({ type: 'all-time', start: null, end: null });
+    const filterB = reactive({ type: 'all-time', start: null, end: null });
+
+    // 数据容器
+    const dataA = reactive({ faqs: {}, stats: {}, trend: { labels: [], datasets: [] } });
+    const dataB = reactive({ faqs: {}, stats: {}, trend: { labels: [], datasets: [] } });
+
+    // 辅助：随机颜色
+    const getRandomColor = () => '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+
+    // 核心：获取数据
+    const fetchDataInternal = async (filterType, startDate, endDate) => {
+        let q = `?filter=${filterType}`;
+        if (filterType === 'custom-range' && startDate && endDate) {
+            q += `&startDate=${startDate}&endDate=${endDate}`;
+        }
+        try {
+            const [resFaqs, resTrend, resStats] = await Promise.all([
+                axios.get(`/api/top10Faqs${q}`, { headers: { Authorization: `Bearer ${token}` } }),
+                axios.get(`/api/department-trend${q}`, { headers: { Authorization: `Bearer ${token}` } }),
+                axios.get(`/api/getDashboardMetrics${q}`, { headers: { Authorization: `Bearer ${token}` } })
+            ]);
+
+            // 给 Trend 数据加上样式
+            const ds = resTrend.data.datasets ? resTrend.data.datasets.map(d => ({
+                ...d,
+                borderColor: getRandomColor(),
+                backgroundColor: 'transparent',
+                tension: 0.3, borderWidth: 2, pointRadius: 3
+            })) : [];
+
+            return {
+                faqs: resFaqs.data,
+                stats: resStats.data,
+                trend: { labels: resTrend.data.labels || [], datasets: ds }
+            };
+        } catch (e) {
+            console.error(e);
+            return { faqs: {}, stats: {}, trend: { labels: [], datasets: [] } };
+        }
+    };
+
+    // 触发搜索
+    const handleSearch = async () => {
+        if (filterA.type === 'custom-range' && (!filterA.start || !filterA.end)) return;
+        loading.value = true;
+
+        // 并行加载 A 和 B (如果需要)
+        const promises = [fetchDataInternal(filterA.type, filterA.start, filterA.end)];
+        if (isCompareMode.value) {
+            promises.push(fetchDataInternal(filterB.type, filterB.start, filterB.end));
+        }
+
+        const [resA, resB] = await Promise.all(promises);
+
+        Object.assign(dataA, resA);
+        if (isCompareMode.value && resB) {
+            Object.assign(dataB, resB);
+        } else {
+            // 清空 B
+            Object.assign(dataB, { faqs: {}, stats: {}, trend: { labels: [], datasets: [] } });
+        }
+
+        loading.value = false;
+    };
+
+    // 格式化图表数据
+    const formatChartData = (sourceData, sourceTrend) => {
+        const intentRaw = sourceData.Intent || [];
+        return {
+            intents: {
+                labels: intentRaw.map(i => i.intent_name),
+                datasets: [{
+                    label: 'Queries',
+                    data: intentRaw.map(i => i.total),
+                    backgroundColor: intentRaw.map(() => getRandomColor()),
+                    barPercentage: 0.6, borderRadius: 4
+                }]
+            },
+            trends: sourceTrend
+        };
+    };
+
+    const chartDataA = computed(() => formatChartData(dataA.faqs, dataA.trend));
+    const chartDataB = computed(() => formatChartData(dataB.faqs, dataB.trend));
+
+    // Label Helpers
+    const getPeriodLabel = (filter) => {
+        if (filter.type === 'custom-range' && filter.start && filter.end) return `${filter.start} ~ ${filter.end}`;
+        return filter.type.charAt(0).toUpperCase() + filter.type.slice(1);
+    };
+    const period1Label = computed(() => getPeriodLabel(filterA));
+    const period2Label = computed(() => getPeriodLabel(filterB));
+
+    // Watchers
+    watch(() => filterA.type, (v) => { if(v !== 'custom-range') handleSearch(); });
+    watch(() => filterB.type, (v) => { if(isCompareMode.value && v !== 'custom-range') handleSearch(); });
+    watch(isCompareMode, (v) => {
+        if (!v) filterA.type = 'all-time'; // Reset or keep logic
+        handleSearch();
+    });
+
+    return {
+        loading, isCompareMode,
+        filterA, filterB,
+        dataA, dataB,
+        chartDataA, chartDataB,
+        period1Label, period2Label,
+        handleSearch
+    };
+}
+</file>
+
+<file path="resources/js/composables/useDataFetcher.js">
+import { ref } from 'vue';
+import axios from 'axios';
+
+export function useDataFetcher() {
+  const intents = ref([]);
+  const FAQs = ref([]);
+  const departments = ref([]);
+  const totalQuestions = ref([]);
+  const isLoading = ref(false);
+  const error = ref(null);
+  const token = localStorage.getItem('sanctum_token');
+
+  // The function you want to share
+       const getIntents = async () => {
+
+        if(token){
+                try {
+                    const response = await axios.get('/api/allIntents', {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    intents.value = response.data;
+                    console.log(intents.value);
+                } catch (err) {
+                    error.value = err.response?.data?.message || 'Error fetching intents';
+                }
+            };
+        };
+
+        const getFAQs = async () => {
+
+        if(token){
+                try {
+                    const response = await axios.get('/api/allFaqs', {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    FAQs.value = response.data;
+                    console.log(FAQs.value);
+                } catch (err) {
+                    error.value = err.response?.data?.message || 'Error fetching FAQs';
+                }
+            };
+        };
+
+        const getDepartments = async () => {
+
+        if(token){
+                try {
+                    const response = await axios.get('/api/allDepartments', {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    departments.value = response.data;
+                    console.log(departments.value);
+                } catch (err) {
+                    error.value = err.response?.data?.message || 'Error fetching departments';
+                }
+            };
+        };
+
+        const getTotalQuestions = async () => {
+
+        if(token){
+                try {
+                    const response = await axios.get('/api/getDashboardMetrics', {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    totalQuestions.value = response.data;
+                    console.log(totalQuestions.value);
+                } catch (err) {
+                    error.value = err.response?.data?.message || 'Error fetching total questions';
+                }
+            };
+        }
+
+
+
+  return {
+    intents,
+    FAQs,
+    departments,
+    totalQuestions,
+    isLoading,
+    error,
+    getIntents,
+    getFAQs,
+    getDepartments,
+    getTotalQuestions,
+
+  };
+}
+</file>
+
+<file path="resources/js/composables/useExcelImport.js">
+import { ref } from 'vue';
+import axios from 'axios';
+import Swal from 'sweetalert2'; // 假设你使用 SweetAlert2
+
+export function useExcelImport() {
+    const isLoading = ref(false);
+    const importFileRef = ref(null); // 用于绑定隐藏的 input 元素
+    const token = localStorage.getItem('sanctum_token');
+
+    // 1. 触发文件选择框
+    const triggerImport = () => {
+        if (importFileRef.value) {
+            importFileRef.value.click();
+        }
+    };
+
+    // 2. 处理文件上传的核心逻辑
+    // type: 'department' | 'intent' | 'faq'
+    // onSuccess: 上传成功后的回调函数 (通常用于刷新列表)
+    const handleFileUpload = async (event, type, onSuccess) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        // 验证文件类型 (简单前端验证)
+        const validTypes = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel', 'text/csv'];
+        if (!validTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls|csv)$/)) {
+             Swal.fire('Error', 'Please upload an Excel or CSV file.', 'error');
+             return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('type', type); // 🔥 关键：传入后端需要的 type
+
+        isLoading.value = true;
+
+        try {
+            await axios.post('/api/importExcel', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+
+            // 成功提示
+            Swal.fire('Success', `${type}s imported successfully!`, 'success');
+
+            // 执行成功回调 (例如刷新列表)
+            if (onSuccess && typeof onSuccess === 'function') {
+                await onSuccess();
+            }
+
+        } catch (error) {
+            console.error(error);
+            const msg = error.response?.data?.message || 'Import failed';
+            Swal.fire('Error', msg, 'error');
+        } finally {
+            isLoading.value = false;
+            // 清空 input，防止无法连续上传同一个文件
+            event.target.value = '';
+        }
+    };
+
+    return {
+        isLoading,
+        importFileRef,
+        triggerImport,
+        handleFileUpload
+    };
+}
+</file>
+
+<file path="resources/js/composables/useExport.js">
+import { ref } from 'vue';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+
+export function useExport(dataA, dataB, isCompareMode, period1Label, period2Label) {
+    const exporting = ref(false);
+
+    // 辅助函数：获取本地日期字符串 (YYYY-MM-DD)
+    const getLocalDateString = () => {
+        const date = new Date();
+        const offset = date.getTimezoneOffset() * 60000;
+        const localISOTime = (new Date(date - offset)).toISOString().slice(0, 10);
+        return localISOTime;
+    };
+
+    // Excel 导出逻辑
+    const exportToExcel = () => {
+        const wb = XLSX.utils.book_new();
+
+        // --- 1. 构建 Summary Sheet ---
+        const summaryRows = [];
+
+        // Header Info
+        summaryRows.push(["Report Generated", new Date().toLocaleString()]);
+        summaryRows.push(["Mode", isCompareMode.value ? "Comparison" : "Single Period"]);
+        summaryRows.push(["Current Period", period1Label.value]);
+
+        if (isCompareMode.value) {
+            summaryRows.push(["Comparison Period", period2Label.value]);
+            // 在这里添加公式说明，放在比较显眼的地方
+            summaryRows.push(["Note", "Change = Current - Comparison"]);
+        }
+
+        summaryRows.push([]); // 空行
+
+        // Metrics Table Header
+        const metricHeader = ["Metric", "Current Period"];
+        if (isCompareMode.value) {
+            metricHeader.push("Comparison Period", "Change");
+        }
+        summaryRows.push(metricHeader);
+
+        // Metrics Data Helper (防止数据为空报错)
+        const getStat = (source, key) => source?.stats?.[key] ?? 0;
+
+        // Metrics Rows
+        const metrics = [
+            { label: "Total Queries", key: "totalQuestions" },
+            { label: "Success", key: "totalSuccess" },
+            { label: "Failed", key: "totalFail" }
+        ];
+
+        metrics.forEach(m => {
+            const valA = getStat(dataA, m.key);
+            const row = [m.label, valA];
+
+            if (isCompareMode.value) {
+                const valB = getStat(dataB, m.key);
+                row.push(valB, valA - valB);
+            }
+            summaryRows.push(row);
+        });
+
+        const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
+        // 设置列宽
+        wsSummary['!cols'] = [{ wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 15 }];
+        XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
+
+
+        // --- 2. 构建 Intents Sheet ---
+        const allIntents = new Set([
+            ...(dataA.faqs?.Intent || []).map(i => i.intent_name),
+            ...(isCompareMode.value ? (dataB.faqs?.Intent || []).map(i => i.intent_name) : [])
+        ]);
+
+        const intentRows = Array.from(allIntents).map(name => {
+            const valA = (dataA.faqs?.Intent || []).find(i => i.intent_name === name)?.total || 0;
+            const row = { "Intent": name, "Current Period": valA };
+
+            if (isCompareMode.value) {
+                const valB = (dataB.faqs?.Intent || []).find(i => i.intent_name === name)?.total || 0;
+                row["Comparison Period"] = valB;
+                row["Change"] = valA - valB;
+            }
+            return row;
+        });
+        // 按当前周期数量降序排列
+        intentRows.sort((a, b) => b["Current Period"] - a["Current Period"]);
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(intentRows), "Intents");
+
+
+        // --- 3. 构建 Departments Sheet ---
+        const allDepts = new Set([
+            ...(dataA.faqs?.Department || []).map(d => d.name),
+            ...(isCompareMode.value ? (dataB.faqs?.Department || []).map(d => d.name) : [])
+        ]);
+
+        const deptRows = Array.from(allDepts).map(name => {
+            const valA = (dataA.faqs?.Department || []).find(d => d.name === name)?.total || 0;
+            const row = { "Department": name, "Current Period": valA };
+
+            if (isCompareMode.value) {
+                const valB = (dataB.faqs?.Department || []).find(d => d.name === name)?.total || 0;
+                row["Comparison Period"] = valB;
+                row["Change"] = valA - valB;
+            }
+            return row;
+        });
+        deptRows.sort((a, b) => b["Current Period"] - a["Current Period"]);
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(deptRows), "Departments");
+
+
+        // --- 4. 构建 FAQs Sheet ---
+        const faqRows = [];
+        const listA = dataA.faqs?.Faq || [];
+        const listB = dataB.faqs?.Faq || [];
+        const maxLen = Math.max(listA.length, isCompareMode.value ? listB.length : 0);
+
+        for (let i = 0; i < maxLen; i++) {
+            const row = {};
+
+            // Period A
+            if (listA[i]) {
+                row["Rank"] = i + 1; // 共用 Rank
+                row["Current Question"] = listA[i].question;
+                row["Current Count"] = listA[i].total;
+            }
+
+            // Period B (Comparison)
+            if (isCompareMode.value) {
+                row["|"] = ""; // 分隔列
+                if (listB[i]) {
+                    row["Comparison Question"] = listB[i].question;
+                    row["Comparison Count"] = listB[i].total;
+                }
+            }
+            faqRows.push(row);
+        }
+
+        const wsFaq = XLSX.utils.json_to_sheet(faqRows);
+        // 设置 FAQ 列宽，让问题列宽一点
+        wsFaq['!cols'] = [{ wch: 5 }, { wch: 50 }, { wch: 10 }, { wch: 2 }, { wch: 50 }, { wch: 10 }];
+        XLSX.utils.book_append_sheet(wb, wsFaq, "FAQs");
+
+        // 导出文件
+        const fileName = `Report_${getLocalDateString()}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+    };
+
+
+    // PDF 导出逻辑
+    const exportToPDF = async (elementId) => {
+        exporting.value = true; // 在 Dashboard.vue 中控制 Header 显示
+
+        // 等待 Vue DOM 更新 (渲染出 Header)
+        await new Promise(r => setTimeout(r, 800)); // 稍微增加延时，确保 Chart.js 渲染完全
+
+        const element = document.getElementById(elementId);
+        if (!element) {
+            console.error(`Element #${elementId} not found`);
+            exporting.value = false;
+            return;
+        }
+
+        try {
+            const canvas = await html2canvas(element, {
+                scale: 2, // 提高清晰度
+                useCORS: true,
+                backgroundColor: '#ffffff', // 确保背景是白色，不是透明
+                logging: false
+            });
+
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+
+            const pdfW = pdf.internal.pageSize.getWidth();
+            const pdfH = pdf.internal.pageSize.getHeight();
+
+            // 按比例计算图片在 PDF 中的高度
+            const imgH = (canvas.height * pdfW) / canvas.width;
+
+            let heightLeft = imgH;
+            let position = 0;
+
+            // 第一页
+            pdf.addImage(imgData, 'PNG', 0, position, pdfW, imgH);
+            heightLeft -= pdfH;
+
+            // 如果内容过长，自动分页
+            while (heightLeft > 0) {
+                position = heightLeft - imgH; // 这里的逻辑是每次向上移动图片位置
+                pdf.addPage();
+                pdf.addImage(imgData, 'PNG', 0, - (imgH - heightLeft), pdfW, imgH);
+                // 注意：多页 PDF 截图通常比较复杂，简单的 addImage 可能会截断文字。
+                // 这里的简单算法：position 应该是负数，把图片往上推。
+                // 修正后的简单分页算法：
+                // 实际上对于简单的 Dashboard，通常建议缩小内容放入一页，或者接受简单的截断。
+                heightLeft -= pdfH;
+            }
+
+            const fileName = `Report_${getLocalDateString()}.pdf`;
+            pdf.save(fileName);
+
+        } catch (e) {
+            console.error("PDF Export Error:", e);
+            alert("Failed to export PDF. Please check console for details.");
+        } finally {
+            exporting.value = false;
+        }
+    };
+
+    return {
+        exporting,
+        exportToExcel,
+        exportToPDF,
+    };
+}
+</file>
+
+<file path="resources/js/composables/usefilter.js">
+import { ref, computed } from 'vue';
+
+/**
+ * A composable function to add client-side search and filtering logic.
+ *
+ * @param {Array<Object>} dataArrayRef - The reactive array of all data (e.g., FAQs.value).
+ * @param {Array<Object>} filterOptions - An array of filter options (e.g., intents, departments).
+ * @param {string} filterKey - The key in the main data array to match the filter option ID (e.g., 'intent_id').
+ * @param {Array<string>} searchKeys - An array of keys in the data objects to search against (e.g., ['question', 'answer']).
+ * @returns {{
+ * searchTerm: Ref<string>,
+ * selectedFilterId: Ref<string|number>,
+ * filteredData: ComputedRef<Array<Object>>
+ * }}
+ */
+export function useFilterableData(dataArrayRef, filterOptions, filterKey, searchKeys) {
+
+    // 1. State for Search and Filter Input
+    const searchTerm = ref('');
+    const selectedFilterId = ref(''); // Can hold the ID of the selected intent or department
+
+    // 2. Computed Property for Filtering
+    const filteredData = computed(() => {
+        let data = dataArrayRef.value;
+
+        // --- Step A: Apply Text Search ---
+        if (searchTerm.value) {
+            const searchLower = searchTerm.value.toLowerCase();
+
+            data = data.filter(item => {
+                // Check if any defined search key matches the term
+                return searchKeys.some(key => {
+                    const value = item[key];
+                    return value && value.toString().toLowerCase().includes(searchLower);
+                });
+            });
+        }
+
+        // --- Step B: Apply Filter Selection ---
+        if (selectedFilterId.value) {
+            // Treat the selected ID as a string or number for comparison
+            const filterId = selectedFilterId.value;
+
+            data = data.filter(item => {
+                // We check if the item's foreign key (e.g., item.intent_id) matches the selected filter ID
+                return item[filterKey] === filterId;
+            });
+        }
+
+        return data;
+    });
+
+    return {
+        searchTerm,
+        selectedFilterId,
+        filteredData
+    };
+}
+</file>
+
+<file path="resources/js/composables/useIdleTimer.js">
+import { ref, onMounted, onUnmounted } from 'vue';
+import { useRouter } from 'vue-router';
+
+/**
+ * @param {number} timeoutSeconds 无操作多久后弹出提示 (秒)
+ * @param {number} countdownSeconds 倒计时多久后跳转 (秒)
+ */
+export function useIdleTimer(timeoutSeconds = 90, countdownSeconds = 10) {
+    const router = useRouter();
+
+    const showTimeoutModal = ref(false);
+    const countdown = ref(countdownSeconds);
+    const isEndChatConfirmation = ref(false); // 是否是用户主动点击 End Chat
+
+    let idleTimer = null;
+    let countdownInterval = null;
+
+    // 开始倒计时 (10s)
+    const startCountdown = () => {
+        showTimeoutModal.value = true;
+        countdown.value = countdownSeconds;
+
+        countdownInterval = setInterval(() => {
+            countdown.value--;
+            if (countdown.value <= 0) {
+                endSession();
+            }
+        }, 1000);
+    };
+
+    // 重置计时器 (用户有操作时调用)
+    const resetTimer = () => {
+        // 如果是用户主动点击结束，或者正在倒计时，不重置（除非显式取消）
+        if (isEndChatConfirmation.value) return;
+
+        clearTimers();
+        showTimeoutModal.value = false;
+
+        // 重新开始 90s 计时
+        idleTimer = setTimeout(startCountdown, timeoutSeconds * 1000);
+    };
+
+    // 彻底结束
+    const endSession = () => {
+        clearTimers();
+        router.push('/');
+    };
+
+    // 用户主动点击 "End Chat"
+    const confirmEndChat = () => {
+        isEndChatConfirmation.value = true;
+        showTimeoutModal.value = true;
+        clearTimeout(idleTimer); // 暂停空闲检测
+    };
+
+    // 用户点击 "Cancel" (继续聊天)
+    const continueSession = () => {
+        showTimeoutModal.value = false;
+        isEndChatConfirmation.value = false;
+        resetTimer();
+    };
+
+    const clearTimers = () => {
+        clearTimeout(idleTimer);
+        clearInterval(countdownInterval);
+    };
+
+    onMounted(() => resetTimer());
+    onUnmounted(() => clearTimers());
+
+    return {
+        showTimeoutModal,
+        countdown,
+        isEndChatConfirmation,
+        resetTimer,
+        endSession,
+        confirmEndChat,
+        continueSession
+    };
+}
+</file>
+
+<file path="resources/js/composables/useNotificationStore.js">
+import { ref } from 'vue';
+import axios from 'axios';
+
+// 全局状态 (Singleton Pattern)
+const failsCount = ref(0);
+const liveRequests = ref([]);
+let pollingTimer = null;
+
+export function useNotificationStore() {
+    const token = localStorage.getItem('sanctum_token');
+
+    // 核心：拉取所有通知数据
+    const fetchAllNotifications = async () => {
+        if (!token) return;
+        try {
+            // 并行请求：获取失败日志数 + 实时请求
+            const [failsRes, liveRes] = await Promise.all([
+                axios.get('/api/selectFailedLogs', { headers: { Authorization: `Bearer ${token}` } }),
+                axios.get('/api/admin/support-requests', { headers: { Authorization: `Bearer ${token}` } })
+            ]);
+
+            // 更新失败数
+            failsCount.value = failsRes.data.length;
+
+            // 更新实时请求 (保留正在输入的回复草稿)
+            // 逻辑：新数据来了，如果旧数据里有用户正在打字的 replyDraft，把它复制过来
+            const newData = liveRes.data;
+            liveRequests.value = newData.map(newItem => {
+                const oldItem = liveRequests.value.find(o => o.id === newItem.id);
+                return {
+                    ...newItem,
+                    replyDraft: oldItem?.replyDraft || '' // 保留草稿
+                };
+            });
+
+        } catch (e) {
+            // 静默失败，不打扰 UI
+            console.error("Notification Poll Error", e);
+        }
+    };
+
+    // 发送回复
+    const sendReplyToUser = async (req) => {
+        if (!req.replyDraft) return;
+        try {
+            await axios.post('/api/admin/reply-support', {
+                log_id: req.id,
+                reply: req.replyDraft
+            }, { headers: { Authorization: `Bearer ${token}` } });
+
+            // 成功的乐观更新：直接从列表中移除该请求，不用等下一次轮询
+            liveRequests.value = liveRequests.value.filter(r => r.id !== req.id);
+            return true;
+        } catch (e) {
+            alert("Failed to send reply");
+            return false;
+        }
+    };
+
+    // 启动轮询
+    const startPolling = () => {
+        if (pollingTimer) return; // 防止重复启动
+        fetchAllNotifications(); // 立即执行一次
+        pollingTimer = setInterval(fetchAllNotifications, 5000); // 每5秒一次
+    };
+
+    // 停止轮询
+    const stopPolling = () => {
+        if (pollingTimer) clearInterval(pollingTimer);
+        pollingTimer = null;
+    };
+
+    return {
+        failsCount,
+        liveRequests,
+        startPolling,
+        stopPolling,
+        refresh: fetchAllNotifications,
+        sendReplyToUser
+    };
+}
+</file>
+
+<file path="resources/js/composables/useSpeech.js">
+import { ref, onUnmounted } from 'vue';
+
+export function useSpeech() {
+    const isListening = ref(false);
+    const transcript = ref('');
+    let recognition = null;
+
+    const setupSpeech = () => {
+        // 兼容性处理
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            alert("Your browser does not support voice input.");
+            return false;
+        }
+
+        recognition = new SpeechRecognition();
+        recognition.lang = 'en-US';
+        recognition.continuous = false; // 说完一句自动停
+        recognition.interimResults = false;
+
+        recognition.onstart = () => { isListening.value = true; };
+
+        recognition.onend = () => { isListening.value = false; };
+
+        recognition.onresult = (event) => {
+            const text = event.results[0][0].transcript;
+            transcript.value = text; // 更新响应式变量
+        };
+
+        recognition.onerror = (event) => {
+            isListening.value = false;
+            console.error("Speech Error:", event.error);
+            if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+                alert("Microphone blocked. Please check your browser permission or use HTTPS.");
+            }
+        };
+
+        return true;
+    };
+
+    const toggleSpeech = () => {
+        if (!recognition) {
+            if (!setupSpeech()) return;
+        }
+
+        if (isListening.value) {
+            recognition.stop();
+        } else {
+            transcript.value = ''; // 清空上一句
+            recognition.start();
+        }
+    };
+
+    onUnmounted(() => {
+        if (recognition) recognition.abort();
+    });
+
+    return {
+        isListening,
+        transcript,
+        toggleSpeech
+    };
+}
+</file>
+
 <file path="resources/js/services/api.js">
 import axios from "axios";
 
@@ -7916,61 +7688,6 @@ class Department extends Model
 }
 </file>
 
-<file path="app/Models/Faq.php">
-<?php
-
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Model;
-use App\Services\GeminiService;
-
-class Faq extends Model
-{
-        protected $fillable = [
-        'question',
-        'answer',
-        'intent_id',
-        'department_id',
-        'embedding'
-    ];
-
-    // FAQ belongs to one Intent
-    public function intent()
-    {
-        return $this->belongsTo(Intent::class);
-    }
-
-    // FAQ belongs to one Department
-    public function department()
-    {
-        return $this->belongsTo(Department::class);
-    }
-
-    public function questionLogs()
-    {
-        return $this->hasMany(QuestionLog::class);
-    }
-
-    // ⚡️ 自动化逻辑：当 FAQ 创建或更新时，自动生成向量
-    protected static function boot()
-    {
-        parent::boot();
-
-        static::saving(function ($faq) {
-            // 只有当 'question' 字段发生变化，或者 'embedding' 为空时，才去调 API
-            if ($faq->isDirty('question') || empty($faq->embedding)) {
-                $gemini = new GeminiService();
-                $vector = $gemini->generateEmbedding($faq->question);
-
-                if ($vector) {
-                    $faq->embedding = json_encode($vector);
-                }
-            }
-        });
-    }
-}
-</file>
-
 <file path="app/Models/User.php">
 <?php
 
@@ -8019,6 +7736,257 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+}
+</file>
+
+<file path="app/Services/ChatBotService.php">
+<?php
+
+namespace App\Services;
+
+use App\Models\QuestionLog;
+use Illuminate\Support\Facades\Log;
+
+class ChatBotService
+{
+    protected $gemini;
+    protected $searcher;
+
+    public function __construct(GeminiService $gemini, VectorSearchService $searcher)
+    {
+        $this->gemini = $gemini;
+        $this->searcher = $searcher;
+    }
+
+    /**
+     * 处理用户聊天的核心逻辑
+     */
+    public function processUserMessage(string $userMessage): array
+    {
+        // 定义 Tools (Function Definitions)
+        $functions = [
+            [
+                "name" => "getFaqAnswer",
+                "description" => "Search for the most relevant FAQ from the database.",
+                "parameters" => [
+                    "type" => "object",
+                    "properties" => [
+                        "question" => ["type" => "string", "description" => "User's question."]
+                    ],
+                    "required" => ["question"]
+                ]
+            ],
+            [
+                "name" => "getDepartmentInfo",
+                "description" => "Get information about a department by name.",
+                "parameters" => [
+                    "type" => "object",
+                    "properties" => [
+                        "name" => ["type" => "string", "description" => "Department name."]
+                    ],
+                    "required" => ["name"]
+                ]
+            ],
+        ];
+
+        $prompt = "
+        You are a chatbot for Southern University College.
+        Please reply in natural language using the knowledge base.
+        If unsure, call getFaqAnswer.
+        User said: '$userMessage'
+        ";
+
+        try {
+            // 1. 第一次调用 Gemini
+            $response = $this->gemini->askGemini($prompt, $functions);
+
+            // 2. 检查是否触发了 Function Call
+            if (is_array($response) && isset($response['function_call'])) {
+                return $this->handleFunctionCall($response['function_call'], $userMessage);
+            }
+
+            // 3. 如果 Gemini 没有调用函数，直接Fallback到强制搜索 (或者直接回复)
+            Log::info("Gemini didn't call function, forcing fallback search for: " . $userMessage);
+            return $this->handleFallbackSearch($userMessage);
+
+        } catch (\Exception $e) {
+            // 记录原始错误到系统日志 (供开发者 debug)
+            Log::error("ChatBotService Error: " . $e->getMessage());
+
+            $errorReply = "Sorry, I am currently experiencing technical difficulties. Please try again later.";
+
+            // --- 🧹 开始清洗错误信息 (为了存入 DB 时好看) ---
+            $rawMessage = $e->getMessage();
+            $cleanRemark = "System Error"; // 默认值
+
+            // 1. 尝试从错误信息中提取 JSON 部分
+            // 正则解释：匹配第一个 { 开始到最后一个 } 结束的内容
+            if (preg_match('/\{.*\}/s', $rawMessage, $matches)) {
+                $jsonObj = json_decode($matches[0], true);
+
+                // 如果提取到了具体的 error message
+                if (isset($jsonObj['error']['message'])) {
+                    $cleanRemark = "System Error: " . $jsonObj['error']['message'];
+                }
+            }
+            // 2. 如果解析 JSON 失败，但在字符串里发现了常见的 HTTP 状态码
+            else if (str_contains($rawMessage, '429')) {
+                $cleanRemark = "System Error: Gemini API Quota Exceeded";
+            }
+            else if (str_contains($rawMessage, '500')) {
+                $cleanRemark = "System Error: Google Server Error";
+            }
+            else {
+                // 3. 实在解析不了，就截取前 150 个字符
+                $cleanRemark = "System Error: " . substr($rawMessage, 0, 150) . '...';
+            }
+            // --- 🧹 清洗结束 ---
+
+            // 将清洗后的 cleanRemark 存入数据库
+            $log = $this->logToDb($userMessage, $errorReply, false, $cleanRemark);
+
+            return ['reply' => $errorReply, 'log_id' => $log->id, 'status' => false];
+        }
+    }
+
+    /**
+     * 处理 Function Call 逻辑
+     */
+    private function handleFunctionCall(array $functionCall, string $originalQuestion): array
+    {
+        $functionName = $functionCall['name'] ?? null;
+        $args = $functionCall['args'] ?? $functionCall['arguments'] ?? [];
+
+        $knowledgeText = null;
+        $logPayload = [];
+        $remark = "Vector Search Success";
+
+        // 分发逻辑
+        switch ($functionName) {
+            case 'getFaqAnswer':
+                $q = $args['question'] ?? $originalQuestion;
+                // 调用 VectorSearchService
+                $results = $this->searcher->findRelevantFaqs($q);
+
+                if (!empty($results)) {
+                    $formatted = $this->formatFaqsForPrompt($results);
+                    $knowledgeText = $formatted['context'];
+                    $logPayload = $formatted['log_data'];
+                }
+                break;
+
+            case 'getDepartmentInfo':
+                $name = $args['name'] ?? $originalQuestion;
+                $info = $this->searcher->findDepartmentInfo($name);
+                if ($info) {
+                    $knowledgeText = $info;
+                    $remark = "Department Info Found";
+                }
+                break;
+        }
+
+        // 如果找到了知识
+        if ($knowledgeText) {
+            $integrationPrompt = "The user asked: '{$originalQuestion}'. Info found: {$knowledgeText}. Please synthesize a natural response.";
+            $naturalReply = $this->gemini->generateText($integrationPrompt);
+
+            $log = $this->logToDb($originalQuestion, $naturalReply, true, $remark, $logPayload);
+            return ['reply' => $naturalReply, 'log_id' => $log->id, 'status' => true];
+        }
+
+        // 如果 Function 没找到结果，走 Fallback
+        return $this->handleFallbackSearch($originalQuestion);
+    }
+
+    /**
+     * Fallback: 强制搜索
+     */
+    private function handleFallbackSearch(string $question): array
+    {
+        // 强制调用 VectorService (它内部包含了 Vector -> Fuzzy 的降级逻辑)
+        $results = $this->searcher->findRelevantFaqs($question);
+
+        if (!empty($results)) {
+            $formatted = $this->formatFaqsForPrompt($results);
+
+            $integrationPrompt = "The user asked: '{$question}'. Knowledge base found: '{$formatted['context']}'. Please rephrase naturally.";
+            $naturalReply = $this->gemini->generateText($integrationPrompt);
+
+            $log = $this->logToDb($question, $naturalReply, true, "Success (Fallback)", $formatted['log_data']);
+            return ['reply' => $naturalReply, 'log_id' => $log->id, 'status' => true];
+        }
+
+        // 彻底失败
+        $finalFailMsg = "Sorry, I don't have information about that yet. Please ask the counter staff.";
+        $log = $this->logToDb($question, $finalFailMsg, false, "No matching knowledge found");
+
+        return ['reply' => $finalFailMsg, 'log_id' => $log->id, 'status' => false];
+    }
+
+    /**
+     * 将搜索结果格式化为字符串给 LLM，并提取日志数据
+     */
+    private function formatFaqsForPrompt(array $results): array
+    {
+        $context = "";
+        $logData = [];
+
+        foreach ($results as $match) {
+            $f = $match['faq'];
+            $score = number_format($match['score'] * 100, 1) . "%";
+
+            $context .= "--- FAQ (Match: {$score}) ---\n";
+            $context .= "Q: {$f->question}\n A: {$f->answer}\n";
+            if ($f->department) {
+                $context .= "Dept: {$f->department->name} at {$f->department->location}.\n";
+            }
+
+            $logData[] = [
+                'faq_id' => $f->id,
+                'intent_id' => $f->intent_id,
+                'department_id' => $f->department_id,
+            ];
+        }
+
+        return ['context' => $context, 'log_data' => $logData];
+    }
+
+    /**
+     * 日志记录
+     */
+    private function logToDb($question, $answer, $status, $remark = null, $metaData = [])
+    {
+        // 提取第一条匹配的元数据
+        $faqId = $metaData[0]['faq_id'] ?? null;
+        $intentId = $metaData[0]['intent_id'] ?? null;
+        $deptId = $metaData[0]['department_id'] ?? null;
+
+        return QuestionLog::create([
+            'question_text' => $question,
+            'answer_text' => $answer,
+            'status' => $status,
+            'checked' => $status ? true : false,
+            'remark' => $remark,
+            'faq_id' => $faqId,
+            'intent_id' => $intentId,
+            'department_id' => $deptId,
+        ]);
+    }
+
+    /**
+     * 生成 Dashboard 摘要 (原 Controller 里的逻辑)
+     */
+    public function generateSummary(array $stats): string
+    {
+        $dataString = json_encode($stats);
+        $prompt = "
+        You are a data analyst for a university helpdesk.
+        Here is the dashboard data: {$dataString}
+        Please write a professional, concise summary (max 100 words).
+        Output pure text.
+        ";
+        return $this->gemini->generateText($prompt);
     }
 }
 </file>
@@ -8172,6 +8140,188 @@ class ExcelService
                 ]
             );
         }
+    }
+}
+</file>
+
+<file path="app/Services/VectorSearchService.php">
+<?php
+
+namespace App\Services;
+
+use App\Models\Faq;
+use App\Models\Department;
+use Illuminate\Support\Facades\Log;
+
+class VectorSearchService
+{
+    protected $gemini;
+
+    public function __construct(GeminiService $gemini)
+    {
+        $this->gemini = $gemini;
+    }
+
+    /**
+     * 核心搜索入口：尝试向量搜索，失败则降级为模糊搜索
+     */
+    public function findRelevantFaqs(string $question): array
+    {
+        // 1. 尝试生成向量
+        $questionEmbedding = $this->gemini->generateEmbedding($question);
+
+        // 2. 如果向量生成失败，或者数据库里还没有向量数据，直接用模糊匹配
+        if (!$questionEmbedding) {
+            Log::warning("Vector generation failed for: '{$question}', falling back to fuzzy search.");
+            return $this->fuzzySearch($question);
+        }
+
+        // 3. 向量搜索逻辑
+        $faqs = Faq::whereNotNull('embedding')->with(['department'])->get();
+        $matches = [];
+
+        foreach ($faqs as $f) {
+            $dbEmbedding = json_decode($f->embedding, true);
+            if (!is_array($dbEmbedding)) continue;
+
+            $score = $this->cosineSimilarity($questionEmbedding, $dbEmbedding);
+
+            // 阈值设为 0.65
+            if ($score > 0.65) {
+                $matches[] = ['faq' => $f, 'score' => $score];
+            }
+        }
+
+        // 4. 如果向量没找到结果，尝试模糊匹配作为最后防线
+        if (empty($matches)) {
+            Log::info("Vector search found no results for: '{$question}', trying fuzzy search.");
+            return $this->fuzzySearch($question);
+        }
+
+        return $this->sortAndLimit($matches);
+    }
+
+    /**
+     * 模糊搜索 (Fallback Logic)
+     */
+    public function fuzzySearch(string $question): array
+    {
+        $faqs = Faq::with(['department'])->get();
+        $matches = [];
+
+        foreach ($faqs as $f) {
+            similar_text(strtolower($question), strtolower($f->question), $percent);
+            // 这里 percent 是 0-100，转成 0-1 以便统一格式
+            $score = $percent / 100;
+
+            if ($percent > 60) {
+                $matches[] = ['faq' => $f, 'score' => $score];
+            }
+        }
+
+        return $this->sortAndLimit($matches);
+    }
+
+    /**
+     * 获取部门信息
+     */
+    public function findDepartmentInfo(string $name): ?string
+    {
+        $department = Department::where('name', 'like', "%$name%")->first();
+
+        if (!$department) {
+            return null;
+        }
+
+        return "{$department->name} is located at {$department->location}. Contact: {$department->contact_info}.";
+    }
+
+    /**
+     * 辅助：计算余弦相似度
+     */
+
+    private function cosineSimilarity(array $vecA, array $vecB)
+    {
+        $dotProduct = 0;
+        $magnitudeA = 0;
+        $magnitudeB = 0;
+
+        foreach ($vecA as $key => $value) {
+            if (!isset($vecB[$key])) continue;
+            $dotProduct += $value * $vecB[$key];
+            $magnitudeA += $value ** 2;
+            $magnitudeB += $vecB[$key] ** 2;
+        }
+
+        $magnitudeA = sqrt($magnitudeA);
+        $magnitudeB = sqrt($magnitudeB);
+
+        return ($magnitudeA * $magnitudeB) == 0 ? 0 : $dotProduct / ($magnitudeA * $magnitudeB);
+    }
+
+    /**
+     * 辅助：排序并取前3
+     */
+    private function sortAndLimit(array $matches, int $limit = 3): array
+    {
+        usort($matches, fn($a, $b) => $b['score'] <=> $a['score']);
+        return array_slice($matches, 0, $limit);
+    }
+}
+</file>
+
+<file path="app/Models/Faq.php">
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use App\Services\GeminiService;
+
+class Faq extends Model
+{
+        protected $fillable = [
+        'question',
+        'answer',
+        'intent_id',
+        'department_id',
+        'embedding'
+    ];
+
+    // FAQ belongs to one Intent
+    public function intent()
+    {
+        return $this->belongsTo(Intent::class);
+    }
+
+    // FAQ belongs to one Department
+    public function department()
+    {
+        return $this->belongsTo(Department::class);
+    }
+
+    public function questionLogs()
+    {
+        return $this->hasMany(QuestionLog::class);
+    }
+
+    // ⚡️ 自动化逻辑：当 FAQ 创建或更新时，自动生成向量
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::saving(function ($faq) {
+
+            if ($faq->isDirty('question') || empty($faq->embedding)) {
+                $gemini = new GeminiService();
+                $vector = $gemini->generateEmbedding($faq->question);
+
+                if ($vector) {
+                    $faq->embedding = json_encode($vector);
+                }
+            }
+        });
     }
 }
 </file>
@@ -8481,53 +8631,6 @@ const handleRegister = async () => {
 </style>
 </file>
 
-<file path="vite.config.js">
-/* import { defineConfig } from 'vite';
-import laravel from 'laravel-vite-plugin';
-import vue from '@vitejs/plugin-vue';
-
-export default defineConfig({
-  plugins: [
-    laravel({
-      input: ['resources/js/app.js'],
-      refresh: true,
-    }),
-    vue(),
-  ],
-}); */
-
-
-import { defineConfig } from 'vite';
-import laravel from 'laravel-vite-plugin';
-import vue from '@vitejs/plugin-vue';
-
-// 你的电脑局域网 IP (例如 192.168.1.15)
-const host = '192.168.0.105';
-
-export default defineConfig({
-    plugins: [
-        laravel({
-            input: 'resources/js/app.js',
-            refresh: true,
-        }),
-        vue({
-            template: {
-                transformAssetUrls: {
-                    base: null,
-                    includeAbsolute: false,
-                },
-            },
-        }),
-    ],
-    server: {
-        host: '0.0.0.0', // 允许外部访问
-        hmr: {
-            host: host, // 关键：强制手机连接到电脑 IP 进行热更新
-        },
-    },
-});
-</file>
-
 <file path="resources/js/app.js">
 import { createApp } from 'vue'
 import App from './App.vue'
@@ -8717,6 +8820,54 @@ export default {
 </style>
 </file>
 
+<file path="vite.config.js">
+import { defineConfig } from 'vite';
+import laravel from 'laravel-vite-plugin';
+import vue from '@vitejs/plugin-vue';
+
+export default defineConfig({
+  plugins: [
+    laravel({
+      input: ['resources/js/app.js'],
+      refresh: true,
+    }),
+    vue(),
+  ],
+});
+
+/*
+import { defineConfig } from 'vite';
+import laravel from 'laravel-vite-plugin';
+import vue from '@vitejs/plugin-vue';
+
+// 你的电脑局域网 IP (例如 192.168.1.15)
+const host = '192.168.0.105';
+
+export default defineConfig({
+    plugins: [
+        laravel({
+            input: 'resources/js/app.js',
+            refresh: true,
+        }),
+        vue({
+            template: {
+                transformAssetUrls: {
+                    base: null,
+                    includeAbsolute: false,
+                },
+            },
+        }),
+    ],
+    server: {
+        host: '0.0.0.0', // 允许外部访问
+        hmr: {
+            host: host, // 关键：强制手机连接到电脑 IP 进行热更新
+        },
+    },
+});
+ */
+</file>
+
 <file path="app/Models/QuestionLog.php">
 <?php
 
@@ -8757,6 +8908,43 @@ class QuestionLog extends Model
 }
 </file>
 
+<file path="package.json">
+{
+    "$schema": "https://json.schemastore.org/package.json",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "vite build",
+        "dev": "vite"
+    },
+    "devDependencies": {
+        "@tailwindcss/vite": "^4.0.0",
+        "axios": "^1.12.2",
+        "concurrently": "^9.0.1",
+        "laravel-vite-plugin": "^2.0.0",
+        "tailwindcss": "^4.0.0",
+        "vite": "^7.0.4"
+    },
+    "dependencies": {
+        "@popperjs/core": "^2.11.8",
+        "@vitejs/plugin-vue": "^6.0.1",
+        "bootstrap": "^5.3.8",
+        "bootstrap-icons": "^1.13.1",
+        "chart.js": "^3.9.1",
+        "chartjs-plugin-datalabels": "^2.2.0",
+        "file-saver": "^2.0.5",
+        "html2canvas": "^1.4.1",
+        "jspdf": "^3.0.4",
+        "sweetalert2": "^11.23.0",
+        "vue": "^3.5.21",
+        "vue-chart-3": "^3.1.8",
+        "vue-router": "^4.5.1",
+        "vue-sweetalert2": "^5.0.11",
+        "xlsx": "^0.18.5"
+    }
+}
+</file>
+
 <file path="app/Services/GeminiService.php">
 <?php
 
@@ -8768,7 +8956,7 @@ use Illuminate\Support\Facades\Log; // Added for better debugging
 class GeminiService
 {
     protected $apiKey;
-    protected $endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+    protected $endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
     public function __construct()
     {
@@ -8802,7 +8990,8 @@ class GeminiService
             ];
         }
 
-        $response = Http::post($url, $payload);
+        // 🔥 修改 1: 增加重试机制 (3次，每次间隔100ms) 防止网络抖动
+        $response = Http::retry(3, 100)->post($url, $payload);
 
         if ($response->successful()) {
             $data = $response->json();
@@ -8831,8 +9020,9 @@ class GeminiService
             return "Model returned an unexpected part type.";
         }
 
-        Log::error('Gemini API (askGemini) failed: ' . $response->body());
-        return "Sorry, something went wrong with the Gemini API. (askGemini error)";
+        // 🔥 修改 2: 失败时抛出异常，包含具体的 API 错误信息
+        // 这样 ChatBotService 就能抓到具体的错误（比如 "429 Too Many Requests"）
+        throw new \Exception("Gemini API Error: " . $response->body());
     }
 
     // --- NEW METHOD FOR NATURAL LANGUAGE REPHRASING ---
@@ -8864,8 +9054,8 @@ class GeminiService
                 ?? "Could not generate natural language reply.";
         }
 
-        Log::error('Gemini API (generateText) failed: ' . $response->body());
-        return "Sorry, a secondary API call for rephrasing failed.";
+        // 🔥 修改 3: 同样抛出异常
+        throw new \Exception("Gemini API Error (GenText): " . $response->body());
     }
 
     /**
@@ -8900,43 +9090,6 @@ class GeminiService
             \Log::error('Embedding Exception: ' . $e->getMessage());
             return null;
         }
-    }
-}
-</file>
-
-<file path="package.json">
-{
-    "$schema": "https://json.schemastore.org/package.json",
-    "private": true,
-    "type": "module",
-    "scripts": {
-        "build": "vite build",
-        "dev": "vite"
-    },
-    "devDependencies": {
-        "@tailwindcss/vite": "^4.0.0",
-        "axios": "^1.12.2",
-        "concurrently": "^9.0.1",
-        "laravel-vite-plugin": "^2.0.0",
-        "tailwindcss": "^4.0.0",
-        "vite": "^7.0.4"
-    },
-    "dependencies": {
-        "@popperjs/core": "^2.11.8",
-        "@vitejs/plugin-vue": "^6.0.1",
-        "bootstrap": "^5.3.8",
-        "bootstrap-icons": "^1.13.1",
-        "chart.js": "^3.9.1",
-        "chartjs-plugin-datalabels": "^2.2.0",
-        "file-saver": "^2.0.5",
-        "html2canvas": "^1.4.1",
-        "jspdf": "^3.0.4",
-        "sweetalert2": "^11.23.0",
-        "vue": "^3.5.21",
-        "vue-chart-3": "^3.1.8",
-        "vue-router": "^4.5.1",
-        "vue-sweetalert2": "^5.0.11",
-        "xlsx": "^0.18.5"
     }
 }
 </file>

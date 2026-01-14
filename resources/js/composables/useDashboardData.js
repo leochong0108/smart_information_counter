@@ -6,18 +6,14 @@ export function useDashboardData() {
     const loading = ref(false);
     const isCompareMode = ref(false);
 
-    // 筛选状态
     const filterA = reactive({ type: 'all-time', start: null, end: null });
     const filterB = reactive({ type: 'all-time', start: null, end: null });
 
-    // 数据容器
     const dataA = reactive({ faqs: {}, stats: {}, trend: { labels: [], datasets: [] } });
     const dataB = reactive({ faqs: {}, stats: {}, trend: { labels: [], datasets: [] } });
 
-    // 辅助：随机颜色
     const getRandomColor = () => '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
 
-    // 核心：获取数据
     const fetchDataInternal = async (filterType, startDate, endDate) => {
         let q = `?filter=${filterType}`;
         if (filterType === 'custom-range' && startDate && endDate) {
@@ -30,7 +26,6 @@ export function useDashboardData() {
                 axios.get(`/api/getDashboardMetrics${q}`, { headers: { Authorization: `Bearer ${token}` } })
             ]);
 
-            // 给 Trend 数据加上样式
             const ds = resTrend.data.datasets ? resTrend.data.datasets.map(d => ({
                 ...d,
                 borderColor: getRandomColor(),
@@ -49,12 +44,10 @@ export function useDashboardData() {
         }
     };
 
-    // 触发搜索
     const handleSearch = async () => {
         if (filterA.type === 'custom-range' && (!filterA.start || !filterA.end)) return;
         loading.value = true;
 
-        // 并行加载 A 和 B (如果需要)
         const promises = [fetchDataInternal(filterA.type, filterA.start, filterA.end)];
         if (isCompareMode.value) {
             promises.push(fetchDataInternal(filterB.type, filterB.start, filterB.end));
@@ -66,14 +59,12 @@ export function useDashboardData() {
         if (isCompareMode.value && resB) {
             Object.assign(dataB, resB);
         } else {
-            // 清空 B
             Object.assign(dataB, { faqs: {}, stats: {}, trend: { labels: [], datasets: [] } });
         }
 
         loading.value = false;
     };
 
-    // 格式化图表数据
     const formatChartData = (sourceData, sourceTrend) => {
         const intentRaw = sourceData.Intent || [];
         return {
@@ -93,7 +84,6 @@ export function useDashboardData() {
     const chartDataA = computed(() => formatChartData(dataA.faqs, dataA.trend));
     const chartDataB = computed(() => formatChartData(dataB.faqs, dataB.trend));
 
-    // Label Helpers
     const getPeriodLabel = (filter) => {
         if (filter.type === 'custom-range' && filter.start && filter.end) return `${filter.start} ~ ${filter.end}`;
         return filter.type.charAt(0).toUpperCase() + filter.type.slice(1);
@@ -101,12 +91,10 @@ export function useDashboardData() {
     const period1Label = computed(() => getPeriodLabel(filterA));
     const period2Label = computed(() => getPeriodLabel(filterB));
 
-    // Watchers
     watch(() => filterA.type, (v) => { if(v !== 'custom-range') handleSearch(); });
     watch(() => filterB.type, (v) => { if(isCompareMode.value && v !== 'custom-range') handleSearch(); });
     watch(isCompareMode, (v) => {
-        if (!v) filterA.type = 'all-time'; // Reset or keep logic
-        handleSearch();
+        if (!v) filterA.type = 'all-time';
     });
 
     return {

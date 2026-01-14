@@ -1,33 +1,30 @@
 <template>
   <div class="home-layout d-flex flex-column justify-content-center align-items-center">
 
-    <!-- 装饰背景圆 -->
     <div class="bg-circle circle-1"></div>
     <div class="bg-circle circle-2"></div>
 
-    <!-- 主要内容卡片 -->
     <div class="home-card shadow-lg p-4 p-md-5 text-center animate-fade-up">
 
-      <!-- Logo / Icon 区域 -->
+
       <div class="logo-container mb-4 mx-auto">
         <i class="bi bi-robot fs-1 text-primary"></i>
       </div>
 
-      <!-- 标题区域 -->
-      <h1 class="fw-bold text-dark mb-2 title-text">Intelligent Campus Enquiry System</h1>
+
+      <h1 class="fw-bold text-dark mb-2 title-text">Smart Information Counter</h1>
       <p class="text-muted mb-4 description-text">
         Welcome to Southern University College.<br>
         Click the button below to start a conversation with our AI assistant and get the information you need.
       </p>
 
-      <!-- 操作按钮区域 -->
+
       <div class="d-grid gap-3">
-        <!-- 主要动作：开始聊天 -->
+
         <router-link to="/chat" class="btn btn-primary btn-lg rounded-pill py-3 shadow-sm btn-start">
           <i class="bi bi-chat-dots-fill me-2"></i> Start Chatting
         </router-link>
 
-        <!-- 次要动作：管理员入口 (设为幽灵按钮，防误触) -->
         <router-link to="/admin" class="btn btn-outline-secondary btn-sm rounded-pill py-2 mt-2">
           <i class="bi bi-shield-lock me-1"></i> Admin Login
         </router-link>
@@ -35,9 +32,8 @@
 
     </div>
 
-    <!-- 底部版权信息 -->
     <footer class="mt-4 text-muted small position-relative z-10">
-      &copy; {{ new Date().getFullYear() }} Intelligent Campus Enquiry System
+      &copy; {{ new Date().getFullYear() }} Smart Information Counter. All rights reserved.
     </footer>
 
   </div>
@@ -50,27 +46,27 @@ export default {
 </script>
 
 <style scoped>
-/* 1. 全局布局 */
+
 .home-layout {
-  min-height: 100dvh; /* 适配移动端地址栏 */
+  min-height: 100dvh;
   background-color: #f0f2f5;
   position: relative;
-  overflow: hidden; /* 防止背景圆溢出 */
+  overflow: hidden;
   padding: 20px;
 }
 
-/* 2. 中心卡片 */
+
 .home-card {
   width: 100%;
-  max-width: 480px; /* 桌面端限制宽度 */
+  max-width: 480px;
   background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px); /* 磨砂玻璃效果 */
+  backdrop-filter: blur(10px);
   border-radius: 24px;
   position: relative;
   z-index: 10;
 }
 
-/* 3. Logo 样式 */
+
 .logo-container {
   width: 80px;
   height: 80px;
@@ -82,7 +78,7 @@ export default {
   animation: float 3s ease-in-out infinite;
 }
 
-/* 4. 文字排版 */
+
 .title-text {
   font-size: 1.75rem;
   letter-spacing: -0.5px;
@@ -92,7 +88,7 @@ export default {
   line-height: 1.6;
 }
 
-/* 5. 按钮特效 */
+
 .btn-start {
   transition: transform 0.2s, box-shadow 0.2s;
   font-weight: 600;
@@ -102,7 +98,7 @@ export default {
   box-shadow: 0 6px 15px rgba(13, 110, 253, 0.3) !important;
 }
 
-/* 6. 背景装饰圆 (增加视觉层次感) */
+
 .bg-circle {
   position: absolute;
   border-radius: 50%;
@@ -124,7 +120,7 @@ export default {
   left: -20px;
 }
 
-/* 7. 动画定义 */
+
 @keyframes fade-up {
   from {
     opacity: 0;
@@ -146,26 +142,24 @@ export default {
   100% { transform: translateY(0px); }
 }
 
-/* --- 响应式适配 --- */
 
-/* 平板 & 桌面 (大于 768px) */
 @media (min-width: 768px) {
   .title-text {
     font-size: 2rem;
   }
   .home-card {
-    padding: 3rem !important; /* 增加内边距 */
+    padding: 3rem !important;
   }
 }
 
-/* 手机 (小于 576px) */
+
 @media (max-width: 576px) {
   .home-card {
     border-radius: 20px;
-    background: #ffffff; /* 手机上减少透明度，提升性能 */
+    background: #ffffff;
   }
   .circle-1, .circle-2 {
-    opacity: 0.4; /* 手机上减淡背景干扰 */
+    opacity: 0.4;
   }
 }
 </style>

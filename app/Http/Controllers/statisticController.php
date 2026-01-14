@@ -50,7 +50,6 @@ class StatisticController extends Controller
         return response()->json($metrics);
     }
 
-    // 这些简单查询可以保留在 Controller，或者也移入 Service
     public function selectTop10ForChat()
     {
         $top10Faqs = QuestionLog::select('faqs.question', DB::raw('COUNT(question_logs.faq_id) as total'))

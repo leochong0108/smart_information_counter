@@ -8,16 +8,11 @@ use Carbon\Carbon;
 
 class DashboardService
 {
-    /**
-     * 获取 Top 10 FAQ, Intent, Department
-     */
     public function getTopStats($filter, $startDate, $endDate)
     {
-        // 1. 基础 Query
         $baseQuery = QuestionLog::where('status', true);
         $this->applyDateFilter($baseQuery, $filter, $startDate, $endDate);
 
-        // 2. Clone query to avoid mutation issues
         $queryFaq = clone $baseQuery;
         $queryIntent = clone $baseQuery;
         $queryDepartment = clone $baseQuery;
@@ -45,9 +40,6 @@ class DashboardService
         ];
     }
 
-    /**
-     * 获取部门趋势 (Chart Data)
-     */
 
     public function getDepartmentTrend($filter, $startDate, $endDate)
     {
@@ -89,15 +81,11 @@ class DashboardService
         return ['labels' => $labels, 'datasets' => $datasets];
     }
 
-    /**
-     * 获取核心指标 (Total, Success, Fail)
-     */
     public function getMetrics($filter, $startDate, $endDate)
     {
         $query = QuestionLog::query();
         $this->applyDateFilter($query, $filter, $startDate, $endDate);
 
-        // 使用 Clone 分别计算
         $totalFails = (clone $query)
             ->where('status', false)
             ->where('remark', 'No matching knowledge found') // 仅计算知识库缺失的
@@ -112,9 +100,6 @@ class DashboardService
         ];
     }
 
-    /**
-     * 私有辅助方法：应用日期过滤
-     */
     private function applyDateFilter($query, $filter, $startDate, $endDate)
     {
         switch ($filter) {

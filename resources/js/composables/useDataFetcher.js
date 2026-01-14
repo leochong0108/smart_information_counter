@@ -10,7 +10,6 @@ export function useDataFetcher() {
   const error = ref(null);
   const token = localStorage.getItem('sanctum_token');
 
-  // The function you want to share
        const getIntents = async () => {
 
         if(token){

@@ -1,23 +1,18 @@
 <template>
     <div class="admin-layout">
-        <!-- 1. 顶部导航栏 (Sticky Top) -->
         <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
             <div class="container-fluid">
-                <!-- Brand -->
                 <router-link to="/admin" class="navbar-brand fw-bold text-primary d-flex align-items-center">
                     <i class="bi bi-robot me-2"></i>
                     <span>Admin Panel</span>
                 </router-link>
 
-                <!-- Mobile Toggler -->
                 <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#adminNavbar">
                     <span class="navbar-toggler-icon"></span>
                     <span v-if="liveRequests.length > 0" class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle"></span>
                 </button>
 
-                <!-- Navbar Content -->
                 <div class="collapse navbar-collapse" id="adminNavbar" ref="navbarCollapse">
-                    <!-- Left: Navigation Links -->
                     <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                         <li class="nav-item">
                             <router-link to="/admin" class="nav-link" exact-active-class="active-link" @click="closeNavbar">
@@ -46,10 +41,8 @@
                         </li>
                     </ul>
 
-                    <!-- Right: Action Buttons -->
                     <div class="d-flex flex-column flex-lg-row align-items-lg-center gap-2 mt-3 mt-lg-0 action-buttons">
 
-                        <!-- 1. Live Help -->
                         <button
                             type="button"
                             class="btn text-nowrap"
@@ -61,7 +54,6 @@
                             </span>
                         </button>
 
-                        <!-- 2. Failed Logs -->
                         <button
                             class="btn btn-outline-warning text-dark text-nowrap"
                             @click="viewFailLog">
@@ -69,15 +61,12 @@
                             <span v-if="failsCount > 0" class="badge bg-danger ms-1">{{ failsCount }}</span>
                         </button>
 
-                        <!-- Mobile Divider -->
                         <hr class="d-lg-none my-1 w-100">
 
-                        <!-- 3. To Chat -->
                         <router-link to="/" class="btn btn-outline-primary text-nowrap">
                             <i class="bi bi-chat-dots me-1"></i> To Chat
                         </router-link>
 
-                        <!-- 4. Logout -->
                         <button v-if="isLoggedIn" @click="handleLogout" class="btn btn-dark text-nowrap">
                             <i class="bi bi-box-arrow-right me-1"></i> Logout
                         </button>
@@ -86,12 +75,10 @@
             </div>
         </nav>
 
-        <!-- 2. 主内容区域 -->
         <main class="main-content bg-light">
             <router-view />
         </main>
 
-        <!-- 3. Live Help Modal -->
         <div v-if="showHelpModal" class="modal-backdrop fade show"></div>
         <div v-if="showHelpModal" class="modal fade show d-block" tabindex="-1" @click.self="showHelpModal = false">
             <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
@@ -154,7 +141,6 @@ const router = useRouter();
 const navbarCollapse = ref(null);
 const showHelpModal = ref(false);
 
-// 1. 引入 Notification Store
 const {
     failsCount,
     liveRequests,
@@ -165,10 +151,8 @@ const {
 
 const isLoggedIn = ref(!!localStorage.getItem('sanctum_token'));
 
-// 2. Action Logic
 const sendReply = async (req) => {
     await sendReplyToUser(req);
-    // 如果发送成功后没有请求了，可以选自动关闭 Modal (这里先不关)
 };
 
 const handleLiveHelpClick = () => {
@@ -187,7 +171,6 @@ const handleLogout = () => {
     router.push('/login');
 };
 
-// 3. Navbar Logic (手机端自动折叠)
 const closeNavbar = () => {
     if (navbarCollapse.value && window.innerWidth < 992) {
         if (navbarCollapse.value.classList.contains('show')) {
@@ -197,7 +180,6 @@ const closeNavbar = () => {
     }
 };
 
-// 4. Lifecycle
 onMounted(() => {
     startPolling();
 });
@@ -208,7 +190,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* 保持原有设计 */
 .admin-layout {
     min-height: 100vh;
     display: flex;

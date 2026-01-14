@@ -6,7 +6,7 @@ export function useSpeech() {
     let recognition = null;
 
     const setupSpeech = () => {
-        // 兼容性处理
+
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
             alert("Your browser does not support voice input.");
@@ -15,7 +15,7 @@ export function useSpeech() {
 
         recognition = new SpeechRecognition();
         recognition.lang = 'en-US';
-        recognition.continuous = false; // 说完一句自动停
+        recognition.continuous = false;
         recognition.interimResults = false;
 
         recognition.onstart = () => { isListening.value = true; };
@@ -24,7 +24,7 @@ export function useSpeech() {
 
         recognition.onresult = (event) => {
             const text = event.results[0][0].transcript;
-            transcript.value = text; // 更新响应式变量
+            transcript.value = text;
         };
 
         recognition.onerror = (event) => {
@@ -46,7 +46,7 @@ export function useSpeech() {
         if (isListening.value) {
             recognition.stop();
         } else {
-            transcript.value = ''; // 清空上一句
+            transcript.value = '';
             recognition.start();
         }
     };

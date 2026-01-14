@@ -1,20 +1,20 @@
 <template>
     <div class="chat-layout">
 
-        <!-- 1. Header -->
+
         <header class="chat-header d-flex justify-content-between align-items-center p-3">
-            <h5 class="m-0 fw-bold text-primary d-none d-md-block">Intelligent Campus Enquiry System</h5>
-            <h5 class="m-0 fw-bold text-primary d-md-none">Campus Enquiry</h5>
+            <h5 class="m-0 fw-bold text-primary d-none d-md-block">Smart Information Counter</h5>
+            <h5 class="m-0 fw-bold text-primary d-md-none">Smart Information Counter</h5>
             <button @click="confirmEndChat" class="btn btn-outline-danger btn-sm">
                 <i class="bi bi-box-arrow-right"></i> End Chat
             </button>
         </header>
 
-        <!-- 2. Main Chat Area -->
+
         <main class="chat-main" ref="chatContainerRef">
             <div class="responsive-container h-100 d-flex flex-column">
 
-                <!-- A. Welcome Screen -->
+
                 <div v-if="messages.length === 0" class="welcome-view flex-grow-1 d-flex flex-column justify-content-center align-items-center text-center px-3">
                     <div class="mb-4">
                         <i class="bi bi-robot fs-1 text-primary bg-light p-3 rounded-circle shadow-sm"></i>
@@ -30,17 +30,17 @@
                     </div>
                 </div>
 
-                <!-- B. Message List -->
+
                 <div v-else class="messages-list py-3 px-3">
                     <div v-for="(m, idx) in messages" :key="idx" class="message-wrapper d-flex mb-3"
                          :class="m.from === 'user' ? 'justify-content-end' : 'justify-content-start'">
 
-                        <!-- Avatar -->
+
                         <div v-if="m.from === 'ai'" class="avatar me-2 align-self-start">
                             <i class="bi bi-robot text-primary bg-light p-1 rounded-circle border"></i>
                         </div>
 
-                        <!-- Bubble -->
+
                         <div class="bubble p-3 shadow-sm" :class="m.from === 'user' ? 'user-bubble' : 'ai-bubble'">
                             <div v-html="m.text"></div>
 
@@ -67,7 +67,7 @@
                         </div>
                     </div>
 
-                     <!-- Listening Indicator -->
+
                     <div v-if="isListening" class="message-wrapper d-flex mb-3 justify-content-start">
                          <div class="avatar me-2 align-self-start">
                             <i class="bi bi-robot text-primary bg-light p-1 rounded-circle border"></i>
@@ -80,10 +80,10 @@
             </div>
         </main>
 
-        <!-- 3. Footer Input -->
+
         <footer class="chat-footer bg-white border-top pt-2 pb-3 px-3">
             <div class="responsive-container">
-                <!-- Suggestion Chips -->
+
                 <div v-if="messages.length > 0 && visibleFAQs.length > 0" class="suggestion-chips d-flex gap-2 overflow-auto mb-2 pb-1">
                     <button v-for="top in visibleFAQs" :key="top.id"
                             @click="handleSend(top.question)"
@@ -109,12 +109,11 @@
                     </button>
                 </div>
                 <div class="text-center mt-2">
-                    <small class="text-muted footer-note">Intelligent Campus Enquiry System.</small>
+                    <small class="text-muted footer-note">Smart Information Counter.</small>
                 </div>
             </div>
         </footer>
 
-        <!-- 4. Timeout / End Chat Modal -->
         <div v-if="showTimeoutModal" class="modal-backdrop-custom d-flex justify-content-center align-items-center">
             <div class="modal-card bg-white p-4 rounded shadow-lg text-center mx-3 animate-fade-in">
                 <div class="mb-3 text-warning">
@@ -141,25 +140,26 @@ import { useSpeech } from "../../composables/useSpeech";
 import { useIdleTimer } from "../../composables/useIdleTimer";
 import { useChatLogic } from "../../composables/useChatLogic";
 
-// 1. 引入 Composables
+
 const { isListening, transcript, toggleSpeech } = useSpeech();
+
+
+
 const {
     showTimeoutModal, countdown, isEndChatConfirmation,
     resetTimer, endSession, confirmEndChat, continueSession
-} = useIdleTimer(90, 10); // 90秒空闲，10秒倒计时
+} = useIdleTimer(90, 10);
 
 const {
     messages, FAQs, visibleFAQs, isLoading,
     fetchTopFAQs, sendMessageToApi, requestHumanHelp, stopPolling
 } = useChatLogic();
 
-// 2. 本地状态
+
 const input = ref("");
 const chatContainerRef = ref(null);
 
-// 3. 逻辑绑定
 
-// 滚动到底部
 const scrollToBottom = async () => {
     await nextTick();
     if (chatContainerRef.value) {
@@ -167,44 +167,42 @@ const scrollToBottom = async () => {
     }
 };
 
-// 发送消息处理
+
 const handleSend = async (text) => {
     if (!text || !text.trim()) return;
 
-    resetTimer(); // 重置空闲计时
-    input.value = ""; // 清空输入框
+    resetTimer();
+    input.value = "";
 
     await sendMessageToApi(text);
     scrollToBottom();
 };
 
-// 监听语音输入，自动填充并发送(可选，或者只填充不发送)
+
 watch(transcript, (newVal) => {
     if (newVal) {
         input.value = newVal;
-        // 如果想语音说完自动发送，取消下面注释
         // handleSend(newVal);
     }
 });
 
-// 监听消息列表变化，自动滚动 (用于异步返回消息时)
+
 watch(() => messages.value.length, () => {
     scrollToBottom();
 });
 
-// 4. 生命周期
+
 onMounted(() => {
     fetchTopFAQs();
-    // useIdleTimer 的 onMounted 已经自动启动了计时器
 });
 
 onUnmounted(() => {
-    stopPolling(); // 确保离开页面停止轮询
+    stopPolling();
 });
 </script>
 
 <style scoped>
-/* 保持原有样式，完全不用动，只需确保类名匹配 */
+
 .chat-layout {
     height: 100dvh;
     display: flex;
@@ -269,7 +267,7 @@ onUnmounted(() => {
 }
 .suggestion-chips::-webkit-scrollbar { display: none; }
 
-/* Modal */
+
 .modal-backdrop-custom {
     position: absolute;
     top: 0;
@@ -283,7 +281,7 @@ onUnmounted(() => {
 .animate-fade-in { animation: fadeIn 0.3s ease-out; }
 @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
 
-/* Loading */
+
 .loading-indicator .dot {
     display: inline-block;
     width: 6px;

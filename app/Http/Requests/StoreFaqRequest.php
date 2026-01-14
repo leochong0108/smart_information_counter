@@ -8,7 +8,7 @@ class StoreFaqRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true; // 允许所有登录用户
+        return true;
     }
 
     public function rules(): array
@@ -16,12 +16,12 @@ class StoreFaqRequest extends FormRequest
         return [
             'question' => 'required|string|max:255',
             'answer' => 'required|string',
-            'intent_id' => 'nullable', // 允许空
+            'intent_id' => 'nullable',
             'department_id' => 'nullable',
         ];
     }
 
-    // 数据预处理：处理前端传来的 "null" 字符串问题
+
     protected function prepareForValidation()
     {
         $this->merge([

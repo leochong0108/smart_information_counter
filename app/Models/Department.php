@@ -13,7 +13,6 @@ class Department extends Model
         'contact_info',
     ];
 
-    // One Department can have many FAQs
     public function faqs()
     {
         return $this->hasMany(Faq::class);

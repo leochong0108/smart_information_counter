@@ -1,7 +1,6 @@
 <template>
 <div class="container-fluid py-4">
 
-    <!-- 1. Header & Actions -->
     <div class="row align-items-center mb-4">
         <div class="col-12 col-md-6 mb-3 mb-md-0">
             <h1 class="h3 mb-0 text-gray-800">Departments Management</h1>
@@ -20,7 +19,6 @@
         </div>
     </div>
 
-    <!-- 2. Search & Filter -->
     <div class="card shadow-sm mb-4 border-0">
         <div class="card-body p-3">
             <div class="row g-3">
@@ -47,19 +45,16 @@
         </div>
     </div>
 
-    <!-- Loading State -->
     <div v-if="loading" class="text-center py-5">
         <div class="spinner-border text-primary" role="status"></div>
     </div>
 
-    <!-- Empty State -->
     <div v-else-if="!filteredDepartments.length" class="text-center py-5 text-muted">
         <i class="bi bi-building-slash fs-1"></i>
         <p>No Departments found.</p>
     </div>
 
     <div v-else>
-        <!-- 📱 MOBILE VIEW -->
         <div class="d-block d-md-none">
             <div v-for="dept in filteredDepartments" :key="dept.id" class="card shadow-sm mb-3 border-0">
                 <div class="card-body">
@@ -95,7 +90,6 @@
             </div>
         </div>
 
-        <!-- 💻 DESKTOP VIEW -->
         <div class="d-none d-md-block card shadow border-0 rounded-3 overflow-hidden">
             <div class="table-responsive">
                 <table class="table table-hover align-top mb-0">
@@ -137,7 +131,6 @@
         </div>
     </div>
 
-    <!-- 4. Modal (Create/Edit Form) -->
     <div v-if="showModal" class="modal-backdrop fade show"></div>
     <div v-if="showModal" class="modal fade show d-block" tabindex="-1" @click.self="closeModal">
         <div class="modal-dialog modal-dialog-centered">
@@ -200,14 +193,11 @@ import { useDataFetcher } from '../../composables/useDataFetcher';
 import { useExcelImport } from '../../composables/useExcelImport';
 import { useCrud } from '../../composables/useCrud'; // 引入新创建的 Composable
 
-// 1. 数据获取逻辑
 const { departments, getDepartments, loading } = useDataFetcher();
 
-// 2. Excel 导入逻辑
 const { importFileRef, triggerImport, handleFileUpload } = useExcelImport();
 const onImportFileChange = (event) => handleFileUpload(event, 'department', getDepartments);
 
-// 3. 搜索与过滤
 const searchTerm = ref('');
 const selectedDepartmentId = ref('');
 
@@ -232,18 +222,14 @@ const filteredDepartments = computed(() => {
     return data;
 });
 
-// 4. CRUD 逻辑 (核心瘦身部分)
-// 定义表单默认值
 const defaultForm = { name: '', description: '', location: '', contact_info: '' };
 
-// 定义 API 路径
 const apiEndpoints = {
     create: '/api/createDepartments',
     update: (id) => `/api/updateDepartments/${id}`,
     delete: (id) => `/api/deleteDepartments/${id}`
 };
 
-// 使用 useCrud 接管状态和方法
 const {
     form,
     showModal,
@@ -257,7 +243,6 @@ const {
     deleteItem
 } = useCrud('Department', apiEndpoints, defaultForm, getDepartments);
 
-// 5. Excel 导出 (保持在组件内，因为数据展示逻辑可能不同)
 const exportDepartments = () => {
     if (!departments.value.length) return Swal.fire('Info', 'No data', 'info');
     try {
@@ -280,7 +265,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* 保持你原有的样式 */
 .text-break {
     word-break: break-word;
     overflow-wrap: break-word;

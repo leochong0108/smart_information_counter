@@ -1,7 +1,6 @@
 <template>
 <div class="container-fluid py-4">
 
-    <!-- 1. Header & Actions -->
     <div class="row align-items-center mb-4">
         <div class="col-12 col-md-6 mb-3 mb-md-0">
             <h1 class="h3 mb-0 text-gray-800">Intent Management</h1>
@@ -20,11 +19,9 @@
         </div>
     </div>
 
-    <!-- 2. Search & Filter -->
     <div class="card shadow-sm mb-4 border-0">
         <div class="card-body p-3">
             <div class="row g-3">
-                <!-- Search -->
                 <div class="col-12 col-md-5">
                     <div class="input-group">
                         <span class="input-group-text bg-light border-end-0"><i class="bi bi-search"></i></span>
@@ -37,7 +34,6 @@
                     </div>
                 </div>
 
-                <!-- Intent Filter (Dropdown selection) -->
                 <div class="col-6 col-md-3">
                     <select v-model="selectedIntentId" class="form-select">
                         <option value="">All Intents</option>
@@ -47,7 +43,6 @@
                     </select>
                 </div>
 
-                <!-- Department Filter -->
                 <div class="col-6 col-md-4">
                     <select v-model="selectedDepartmentId" class="form-select">
                         <option value="">All Departments</option>
@@ -61,12 +56,10 @@
         </div>
     </div>
 
-    <!-- Loading State -->
     <div v-if="loading" class="text-center py-5">
         <div class="spinner-border text-primary" role="status"></div>
     </div>
 
-    <!-- Empty State -->
     <div v-else-if="!filteredIntents.length" class="text-center py-5 text-muted">
         <i class="bi bi-diagram-2 fs-1"></i>
         <p>No Intents found.</p>
@@ -74,7 +67,6 @@
 
     <div v-else>
 
-        <!-- 📱 MOBILE VIEW: Cards -->
         <div class="d-block d-md-none">
             <div v-for="intent in filteredIntents" :key="intent.id" class="card shadow-sm mb-3 border-0">
                 <div class="card-body">
@@ -108,7 +100,6 @@
             </div>
         </div>
 
-        <!-- 💻 DESKTOP/TABLET VIEW: Table -->
         <div class="d-none d-md-block card shadow border-0 rounded-3 overflow-hidden">
             <div class="table-responsive">
                 <table class="table table-hover align-top mb-0">
@@ -158,7 +149,6 @@
 
     </div>
 
-    <!-- 4. Modal (Form) -->
     <div v-if="showModal" class="modal-backdrop fade show"></div>
     <div v-if="showModal" class="modal fade show d-block" tabindex="-1" @click.self="closeModal">
         <div class="modal-dialog modal-dialog-centered">
@@ -184,7 +174,6 @@
 
                         <div class="mb-3">
                             <label class="form-label fw-bold">Department</label>
-                            <!-- 确保 departments 数据已加载 -->
                             <select v-model="form.department_id" class="form-select">
                                 <option :value="null">None (Unassigned)</option>
                                 <option v-for="dept in departments" :key="dept.id" :value="dept.id">
@@ -218,16 +207,13 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { useDataFetcher } from '../../composables/useDataFetcher';
 import { useExcelImport } from '../../composables/useExcelImport';
-import { useCrud } from '../../composables/useCrud'; // 导入通用钩子
+import { useCrud } from '../../composables/useCrud';
 
-// 1. 数据获取
 const { intents, departments, getIntents, getDepartments, loading } = useDataFetcher();
 
-// 2. Excel 导入
 const { importFileRef, triggerImport, handleFileUpload } = useExcelImport();
 const onImportFileChange = (event) => handleFileUpload(event, 'intent', getIntents);
 
-// 3. 搜索与过滤
 const searchTerm = ref('');
 const selectedIntentId = ref('');
 const selectedDepartmentId = ref('');
@@ -235,7 +221,6 @@ const selectedDepartmentId = ref('');
 const filteredIntents = computed(() => {
     let data = intents.value;
 
-    // Search Text
     if (searchTerm.value) {
         const lower = searchTerm.value.toLowerCase();
         data = data.filter(i =>
@@ -245,13 +230,11 @@ const filteredIntents = computed(() => {
         );
     }
 
-    // Intent Filter
     if (selectedIntentId.value !== '') {
         const val = parseInt(selectedIntentId.value);
         data = data.filter(i => i.id === val);
     }
 
-    // Department Filter
     if (selectedDepartmentId.value !== '') {
         const val = selectedDepartmentId.value === null ? null : parseInt(selectedDepartmentId.value);
         data = data.filter(i => i.department_id === val);
@@ -260,22 +243,19 @@ const filteredIntents = computed(() => {
     return data;
 });
 
-// 4. CRUD 逻辑 (核心瘦身)
-// 表单默认值
+
 const defaultForm = {
     intent_name: '',
     description: '',
     department_id: null
 };
 
-// API 路径
 const apiEndpoints = {
     create: '/api/createIntents',
     update: (id) => `/api/updateIntents/${id}`,
     delete: (id) => `/api/deleteIntents/${id}`
 };
 
-// 接管状态和方法
 const {
     form,
     showModal,
@@ -289,7 +269,6 @@ const {
     deleteItem
 } = useCrud('Intent', apiEndpoints, defaultForm, getIntents);
 
-// 5. Excel 导出
 const exportIntents = () => {
     if (!intents.value.length) return Swal.fire('Info', 'No data', 'info');
     try {
@@ -310,12 +289,11 @@ const exportIntents = () => {
 
 onMounted(() => {
     getIntents();
-    getDepartments(); // 必须加载部门，否则 Modal 下拉框为空
+    getDepartments();
 });
 </script>
 
 <style scoped>
-/* 保持样式一致 */
 .text-purple { color: #efecf6 !important; }
 .bg-purple { background-color: #6f42c1 !important; }
 .border-purple { border-color: #6f42c1 !important; }

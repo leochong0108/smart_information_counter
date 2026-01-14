@@ -1,30 +1,29 @@
 import { createRouter, createWebHashHistory } from 'vue-router';
 import Home from '../views/public/Home.vue';
 import Chat from '../views/public/Chat.vue';
-import Login from '../views/private/Login.vue'; // Import the new Login component
-import AdminLayout from '../views/private/AdminLayout.vue'; // This will be the main container for private routes
+import Login from '../views/private/Login.vue';
+import AdminLayout from '../views/private/AdminLayout.vue';
 import Intents from '../views/private/Intents.vue';
 import Faqs from '../views/private/Faqs.vue';
 import Departments from '../views/private/Departments.vue';
 import QuestionLogs from '../views/private/QuestionLog.vue';
-import NotFoundComponent from '../components/NotFound.vue'; // A simple 404 component
-import Register from '../views/private/Register.vue'; // If you create a register component
+import NotFoundComponent from '../components/NotFound.vue';
+import Register from '../views/private/Register.vue';
 import FailLog from '../views/private/FailLog.vue';
 import dashboard from '../views/private/Dashboard.vue';
 
 const routes = [
-  // Public routes that don't require authentication
+
   { path: '/', name: 'Home', component: Home },
   { path: '/chat', name: 'Chat', component: Chat },
   { path: '/login', name: 'Login', component: Login },
   { path: '/register', name: 'Register', component: Register },
 
-  // Protected routes that require authentication
   {
     path: '/admin',
     name: 'Admin',
     component: AdminLayout,
-    meta: { requiresAuth: true }, // A meta field to mark this route and its children as protected
+    meta: { requiresAuth: true },
     children: [
       { path: 'intents', name: 'Intents', component: Intents },
       { path: 'faqs', name: 'Faqs', component: Faqs },
@@ -34,8 +33,7 @@ const routes = [
       { path: 'failLog', name: 'FailLog', component: FailLog    }
     ]
   },
-  // Catch-all route for 404 Not Found
-  { path: '/:pathMatch(.*)*', name: 'NotFound', component: NotFoundComponent } // You would need to create this component
+  { path: '/:pathMatch(.*)*', name: 'NotFound', component: NotFoundComponent }
 ];
 
 const router = createRouter({
@@ -43,15 +41,13 @@ const router = createRouter({
   routes,
 });
 
-// Navigation Guard
 router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('sanctum_token');
   if (to.meta.requiresAuth && !token) {
-    // This route requires auth, check if logged in
-    // if not, redirect to login page.
+
     next({ name: 'Login' });
   } else {
-    next(); // otherwise, allow navigation
+    next();
   }
 });
 

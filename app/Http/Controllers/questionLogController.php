@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\QuestionLog;
 use App\Services\QuestionLogService;
-use App\Http\Requests\StoreFaqRequest; // 复用 FAQ 的验证逻辑
+use App\Http\Requests\StoreFaqRequest;
 
 class QuestionLogController extends Controller
 {
@@ -19,7 +19,6 @@ class QuestionLogController extends Controller
 
     public function index()
     {
-        // 简单查询可以直接在 Controller 做，没必要强行 Service
         $logs = QuestionLog::with(['intent', 'department', 'faq'])
                     ->orderBy('created_at', 'desc')
                     ->get();
@@ -41,9 +40,6 @@ class QuestionLogController extends Controller
         return response()->json(['message' => 'All question logs deleted successfully']);
     }
 
-    /**
-     * 获取所有失败且未检查的日志
-     */
     public function selectFail()
     {
         $failedLogs = QuestionLog::where('status', false)
@@ -54,9 +50,6 @@ class QuestionLogController extends Controller
         return response()->json($failedLogs);
     }
 
-    /**
-     * 批量标记已检查
-     */
     public function markSelectedAsChecked(Request $request)
     {
         $request->validate([
@@ -76,15 +69,9 @@ class QuestionLogController extends Controller
         ]);
     }
 
-    /**
-     * 🔥 核心重构：将 Log 转化为 FAQ
-     * 使用 StoreFaqRequest 自动处理验证和 "null" 清洗
-     */
     public function insertAndMark(StoreFaqRequest $request, $id)
     {
         try {
-            // 调用 Service 执行事务操作
-            // $request->validated() 获取经过验证和清洗的数据
             $result = $this->logService->convertLogToFaq($id, $request->validated());
 
             return response()->json([
@@ -96,12 +83,10 @@ class QuestionLogController extends Controller
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json(['message' => 'Question Log not found'], 404);
         } catch (\Exception $e) {
-            // 捕获事务失败或其他错误
             return response()->json(['message' => 'Conversion failed', 'error' => $e->getMessage()], 500);
         }
     }
 
-    // --- Admin Support 区域 ---
 
     public function getPendingSupportRequests()
     {
